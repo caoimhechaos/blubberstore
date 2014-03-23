@@ -48,6 +48,23 @@ import (
 	"code.google.com/p/goprotobuf/proto"
 )
 
+// Special "writer" which just counts the number of bytes passed through.
+type CountingWriter struct {
+	n uint64
+}
+
+// Add the length of p to the counter.
+func (self *CountingWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+	self.n += uint64(n)
+	return
+}
+
+// Return the full number of bytes passed through Write().
+func (self *CountingWriter) BytesWritten() uint64 {
+	return self.n
+}
+
 type blubberStore struct {
 	blob_path string
 	insecure  bool
@@ -64,8 +81,8 @@ func (self *blubberStore) blobId2FileName(blobId []byte) (
 	// Extract the first and second directory part piece.
 	if len(blobId) > 0 {
 		first_dir = strconv.FormatUint(uint64(blobId[0]), 16)
-		path_name = "zz"
 	} else {
+		path_name = "zz"
 		first_dir = "00"
 	}
 	if len(blobId) > 1 {
@@ -86,6 +103,7 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	var aescipher cipher.Block
 	var cksum hash.Hash = sha256.New()
 	var parent_dir, file_prefix string
+	var counter CountingWriter
 	var outfile *os.File
 	var buf []byte
 	var n int
@@ -110,6 +128,8 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 		return errors.New("Unexpected length of random data")
 	}
 
+	file_prefix, parent_dir = self.blobId2FileName(blobId)
+
 	// Ensure we have the full directory path in place.
 	err = os.MkdirAll(parent_dir, 0700)
 	if err != nil {
@@ -127,7 +147,7 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	}
 	outstream = cipher.StreamWriter{
 		S: cipher.NewCTR(aescipher, bh.Iv),
-		W: io.MultiWriter(outfile, cksum),
+		W: io.MultiWriter(outfile, cksum, &counter),
 	}
 	_, err = io.Copy(outstream, input)
 	if err != nil {
@@ -140,6 +160,8 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 
 	// Fill in the last bits of the blob header.
 	bh.Checksum = cksum.Sum(bh.Checksum)
+	bh.Size = new(uint64)
+	*bh.Size = counter.BytesWritten()
 	buf, err = proto.Marshal(&bh)
 	if err != nil {
 		return err

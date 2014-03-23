@@ -22,4 +22,7 @@ message BlubberBlockHeader {
 
 	// SHA-2 checksum of the data stored in the block.
 	required bytes checksum = 3;
+
+	// Size of the block.
+	required uint64 size = 4;
 }
