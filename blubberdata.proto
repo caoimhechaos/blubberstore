@@ -26,3 +26,33 @@ message BlubberBlockHeader {
 	// Size of the block.
 	required uint64 size = 4;
 }
+
+// Response protobuf for blubber block operations.
+message BlockId {
+	// The requested blubber block ID.
+	required bytes block_id = 1;
+}
+
+// The block with its ID and data.
+message BlockWithData {
+	// The requested blubber block ID.
+	required bytes block_id = 1;
+
+	// The actual contents of the blubber block to be written.
+	required bytes block_data = 2;
+}
+
+// The main Blubber Store RPC service.
+service BlubberService {
+	// Store the blubber black passed in under the given block ID.
+	rpc StoreBlob (BlockWithData) returns (BlockId);
+
+	// Retrieve the data from the given block ID.
+	rpc RetrieveBlob (BlockId) returns (BlockWithData);
+
+	// Delete the specified blubber block.
+	rpc DeleteBlob (BlockId) returns (BlockId);
+
+	// Get some information about the block.
+	rpc StatBlob (BlockId) returns (BlubberStat);
+}

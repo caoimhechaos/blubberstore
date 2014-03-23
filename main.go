@@ -50,6 +50,7 @@ import (
 func main() {
 	var ra *RESTAdapter
 	var bs *blubberStore
+	var srv *BlubberService
 	var config *tls.Config = new(tls.Config)
 	var rsa_key *rsa.PrivateKey
 	var l net.Listener
@@ -131,6 +132,14 @@ func main() {
 	}
 	ra = &RESTAdapter{
 		store: bs,
+	}
+	srv = &BlubberService{
+		store: bs,
+	}
+
+	err = rpc.Register(srv)
+	if err != nil {
+		log.Fatal("Failed to register BlubberService: ", err)
 	}
 
 	err = http.Serve(l, ra)
