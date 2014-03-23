@@ -142,7 +142,8 @@ func main() {
 		log.Fatal("Failed to register BlubberService: ", err)
 	}
 
-	err = http.Serve(l, ra)
+	http.Handle("/", ra)
+	err = http.Serve(l, nil)
 	if err != nil {
 		log.Fatal("Error serving HTTP on ", l.Addr())
 	}
