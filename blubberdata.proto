@@ -1,0 +1,25 @@
+package main;
+
+// Status of a block of blubber.
+message BlubberStat {
+	// ID of the block.
+	required bytes block_id = 1;
+
+	// Size of the data actually stored in the block.
+	required uint64 size = 2;
+
+	// SHA-2 checksum of the blocks data.
+	required bytes checksum = 3;
+}
+
+// Metadata of a block of blubber.
+message BlubberBlockHeader {
+	// The AES key used to create the block.
+	required bytes block_key = 1;
+
+	// Initialization Vector used for the block.
+	required bytes iv = 2;
+
+	// SHA-2 checksum of the data stored in the block.
+	required bytes checksum = 3;
+}
