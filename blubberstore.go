@@ -41,6 +41,7 @@ import (
 	"errors"
 	"hash"
 	"io"
+	"io/ioutil"
 	"os"
 	"strconv"
 
@@ -53,19 +54,12 @@ type blubberStore struct {
 	priv      *rsa.PrivateKey
 }
 
-// Create a new blob with the given blobId, or overwrite an existing one.
-// The contents of the blob will be read from input.
-func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
-	var outstream cipher.StreamWriter
-	var bh BlubberBlockHeader
-	var aescipher cipher.Block
-	var cksum hash.Hash = sha256.New()
-	var outfile *os.File
-	var path_name string = hex.EncodeToString(blobId)
+// Construct the file name prefix for the blob with the given blob ID.
+// Returns the full name prefix and the parent directory.
+func (self *blubberStore) blobId2FileName(blobId []byte) (
+	string, string) {
 	var parent_dir, first_dir, second_dir string
-	var buf []byte
-	var n int
-	var err error
+	var path_name string = hex.EncodeToString(blobId)
 
 	// Extract the first and second directory part piece.
 	if len(blobId) > 0 {
@@ -79,6 +73,23 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	} else {
 		second_dir = first_dir + "00"
 	}
+
+	parent_dir = self.blob_path + "/" + first_dir + "/" + second_dir
+	return parent_dir + "/" + path_name, parent_dir
+}
+
+// Create a new blob with the given blobId, or overwrite an existing one.
+// The contents of the blob will be read from input.
+func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
+	var outstream cipher.StreamWriter
+	var bh BlubberBlockHeader
+	var aescipher cipher.Block
+	var cksum hash.Hash = sha256.New()
+	var parent_dir, file_prefix string
+	var outfile *os.File
+	var buf []byte
+	var n int
+	var err error
 
 	// Create a block key and IV for the blob data.
 	bh.BlockKey = make([]byte, aes.BlockSize)
@@ -100,14 +111,13 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	}
 
 	// Ensure we have the full directory path in place.
-	parent_dir = self.blob_path + "/" + first_dir + "/" + second_dir
 	err = os.MkdirAll(parent_dir, 0700)
 	if err != nil {
 		return err
 	}
 
 	// Now, write the actual data.
-	outfile, err = os.Create(parent_dir + "/" + path_name + ".data")
+	outfile, err = os.Create(file_prefix + ".data")
 	if err != nil {
 		return err
 	}
@@ -143,7 +153,7 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	}
 
 	// Write out the crypto head with the IV and the blob key.
-	outfile, err = os.Create(parent_dir + "/" + path_name + ".crypthead")
+	outfile, err = os.Create(file_prefix + ".crypthead")
 	if err != nil {
 		return err
 	}
@@ -157,10 +167,67 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	return outstream.Close()
 }
 
+// Extract the blubber block head for the given blob ID and return it.
+func (self *blubberStore) extractBlockHead(blobId []byte) (
+	bh *BlubberBlockHeader, err error) {
+	var file_prefix string
+	var data []byte
+
+	file_prefix, _ = self.blobId2FileName(blobId)
+	data, err = ioutil.ReadFile(file_prefix + ".crypthead")
+
+	if !self.insecure {
+		// Decrypt the AES key and IV with the RSA key.
+		data, err = rsa.DecryptPKCS1v15(rand.Reader, self.priv, data)
+		if err != nil {
+			return
+		}
+	}
+
+	bh = new(BlubberBlockHeader)
+	err = proto.Unmarshal(data, bh)
+	return
+}
+
 // Read the blob with the specified blob ID and return it to the caller.
 // The contents will be sent as a regular HTTP response.
 func (self *blubberStore) RetrieveBlob(blobId []byte, rw io.Writer) error {
-	return errors.New("Not yet implemented")
+	var file_prefix string
+	var infile *os.File
+	var bh *BlubberBlockHeader
+	var instream cipher.StreamReader
+	var aescipher cipher.Block
+	var err error
+
+	// Get the metadata.
+	bh, err = self.extractBlockHead(blobId)
+	if err != nil {
+		return err
+	}
+
+	file_prefix, _ = self.blobId2FileName(blobId)
+	infile, err = os.Open(file_prefix + ".data")
+	if err != nil {
+		return err
+	}
+
+	aescipher, err = aes.NewCipher(bh.BlockKey)
+	if err != nil {
+		infile.Close()
+		return err
+	}
+	instream = cipher.StreamReader{
+		S: cipher.NewCTR(aescipher, bh.Iv),
+		R: infile,
+	}
+
+	_, err = io.Copy(rw, instream)
+	if err != nil {
+		infile.Close()
+		return err
+	}
+
+	return infile.Close()
 }
 
 // Delete the blob with the given blob ID.
