@@ -260,6 +260,19 @@ func (self *blubberStore) DeleteBlob(blobId []byte) error {
 // Get some details about the specified blob.
 func (self *blubberStore) StatBlob(blobId []byte) (
 	ret BlubberStat, err error) {
-	err = errors.New("Not yet implemented")
+	var bh *BlubberBlockHeader
+
+	bh, err = self.extractBlockHead(blobId)
+	if err != nil {
+		return
+	}
+
+	ret.BlockId = make([]byte, len(blobId))
+	copy(ret.BlockId, blobId)
+
+	ret.Checksum = make([]byte, len(bh.Checksum))
+	copy(ret.Checksum, bh.Checksum)
+
+	ret.Size = bh.Size
 	return
 }
