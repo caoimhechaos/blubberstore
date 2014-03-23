@@ -254,7 +254,15 @@ func (self *blubberStore) RetrieveBlob(blobId []byte, rw io.Writer) error {
 
 // Delete the blob with the given blob ID.
 func (self *blubberStore) DeleteBlob(blobId []byte) error {
-	return errors.New("Not yet implemented")
+	var prefix string
+	var err error
+
+	prefix, _ = self.blobId2FileName(blobId)
+	err = os.Remove(prefix + ".data")
+	if err != nil {
+		return err
+	}
+	return os.Remove(prefix + ".crypthead")
 }
 
 // Get some details about the specified blob.
