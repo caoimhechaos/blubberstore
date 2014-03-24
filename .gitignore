@@ -3,6 +3,10 @@
 *.a
 *.so
 
+# Data files from testing
+*.crypthead
+*.data
+
 # Folders
 _obj
 _test
@@ -22,3 +26,4 @@ _testmain.go
 
 *.exe
 blubberstore
+copy-cli/copy-cli
