@@ -103,6 +103,9 @@ func main() {
 		if !config.ClientCAs.AppendCertsFromPEM(certdata) {
 			log.Fatal("Unable to load the X.509 certificates from ", cacert)
 		}
+
+		// Configure client side encryption.
+		config.RootCAs = config.ClientCAs
 	}
 
 	if insecure {
