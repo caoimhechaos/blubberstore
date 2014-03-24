@@ -336,8 +336,11 @@ func (self *blubberStore) CopyBlob(blobId []byte, source string) error {
 	*remote_stat.Size, err = strconv.ParseUint(
 		resp.Header.Get("Content-Length"), 10, 64)
 
-	if remote_stat.Size != stat.Size {
-		return errors.New("Size mismatch after copying block")
+	if *remote_stat.Size != *stat.Size {
+		return errors.New("Size mismatch after copying block (orig: " +
+			strconv.FormatUint(*remote_stat.Size, 10) + " (" +
+			resp.Header.Get("Content-Length") + "), new: " +
+			strconv.FormatUint(*stat.Size, 10) + ")")
 	}
 
 	if bytes.Compare(remote_stat.BlockId, stat.BlockId) != 0 {
@@ -345,7 +348,9 @@ func (self *blubberStore) CopyBlob(blobId []byte, source string) error {
 	}
 
 	if bytes.Compare(remote_stat.Checksum, stat.Checksum) != 0 {
-		return errors.New("Checksum mismatch")
+		return errors.New("Checksum mismatch (orig: " +
+			hex.EncodeToString(remote_stat.Checksum) + ", new: " +
+			hex.EncodeToString(stat.Checksum) + ")")
 	}
 
 	// If we reached this point we apparently copied the block successfully.
