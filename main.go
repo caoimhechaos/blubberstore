@@ -71,6 +71,10 @@ func main() {
 		"Boot URI of the Doozer lock service.")
 	flag.StringVar(&bind, "bind", "[::]:0",
 		"host:port pair or host name to bind to.")
+
+	flag.StringVar(&cert, "cert", "", "Path to the X.509 certificate.")
+	flag.StringVar(&key, "key", "", "Path to the X.509 private key.")
+	flag.StringVar(&cacert, "cacert", "", "Path to the X.509 CA certificate.")
 	flag.BoolVar(&insecure, "insecure", false,
 		"Disable the use of client certificates (for development/debugging).")
 	flag.Parse()
