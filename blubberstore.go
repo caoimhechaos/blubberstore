@@ -151,13 +151,13 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	}
 	outstream = cipher.StreamWriter{
 		S: cipher.NewCTR(aescipher, bh.Iv),
-		W: io.MultiWriter(outfile, cksum, &counter),
+		W: outfile,
 	}
-	_, err = io.Copy(outstream, input)
+	_, err = io.Copy(io.MultiWriter(outstream, cksum, &counter), input)
 	if err != nil {
 		return err
 	}
-	err = outfile.Close()
+	err = outstream.Close()
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	if n < len(buf) {
 		return errors.New("Short write to file")
 	}
-	return outstream.Close()
+	return outfile.Close()
 }
 
 // Extract the blubber block head for the given blob ID and return it.
