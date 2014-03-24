@@ -64,6 +64,19 @@ func (self *RESTAdapter) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, "OK", http.StatusOK)
 		}
 	} else if req.Method == "GET" {
+		var stat BlubberStat
+		stat, err = self.store.StatBlob(blobId)
+		if err == nil {
+			rw.Header().Set("Content-Id",
+				hex.EncodeToString(stat.GetBlockId()))
+			rw.Header().Set("Content-Length",
+				strconv.FormatUint(stat.GetSize(), 10))
+			rw.Header().Set("Content-Checksum",
+				hex.EncodeToString(stat.GetChecksum()))
+		} else {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		err = self.store.RetrieveBlob(blobId, rw)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
