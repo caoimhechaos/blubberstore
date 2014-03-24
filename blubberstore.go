@@ -32,16 +32,19 @@
 package main
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"hash"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
 
@@ -69,6 +72,7 @@ type blubberStore struct {
 	blob_path string
 	insecure  bool
 	priv      *rsa.PrivateKey
+	tlsConfig *tls.Config
 }
 
 // Construct the file name prefix for the blob with the given blob ID.
@@ -283,4 +287,67 @@ func (self *blubberStore) StatBlob(blobId []byte) (
 
 	ret.Size = bh.Size
 	return
+}
+
+// Copy a block from the given host.
+func (self *blubberStore) CopyBlob(blobId []byte, source string) error {
+	var cli http.Client = http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: self.tlsConfig,
+		},
+	}
+	var proto string
+	var stat, remote_stat BlubberStat
+	var resp *http.Response
+	var err error
+
+	if self.insecure {
+		proto = "http"
+	} else {
+		proto = "https"
+	}
+
+	// Request blob from remote blubber server.
+	resp, err = cli.Get(proto + "://" + source + "/" +
+		hex.EncodeToString(blobId))
+	if err != nil {
+		return err
+	}
+
+	// Copy the remote contents into a local blob.
+	err = self.StoreBlob(blobId, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	// Now, let's do an integrity check.
+	stat, err = self.StatBlob(blobId)
+	if err != nil {
+		return err
+	}
+
+	// Check the block length and signature against what the server
+	// spefified in the HTTP response.
+	remote_stat.BlockId, err = hex.DecodeString(
+		resp.Header.Get("Content-Id"))
+	remote_stat.Checksum, err = hex.DecodeString(
+		resp.Header.Get("Content-Checksum"))
+	remote_stat.Size = new(uint64)
+	*remote_stat.Size, err = strconv.ParseUint(
+		resp.Header.Get("Content-Length"), 10, 64)
+
+	if remote_stat.Size != stat.Size {
+		return errors.New("Size mismatch after copying block")
+	}
+
+	if bytes.Compare(remote_stat.BlockId, stat.BlockId) != 0 {
+		return errors.New("BlockId different than requested")
+	}
+
+	if bytes.Compare(remote_stat.Checksum, stat.Checksum) != 0 {
+		return errors.New("Checksum mismatch")
+	}
+
+	// If we reached this point we apparently copied the block successfully.
+	return nil
 }

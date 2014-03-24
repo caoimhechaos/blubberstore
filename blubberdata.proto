@@ -42,6 +42,15 @@ message BlockWithData {
 	required bytes block_data = 2;
 }
 
+// Request for copying a blob from the given host.
+message BlockSource {
+	// The blubber block ID to copy.
+	required bytes block_id = 1;
+
+	// The host:port combination to copy it from.
+	required string source_host = 2;
+}
+
 // The main Blubber Store RPC service.
 service BlubberService {
 	// Store the blubber black passed in under the given block ID.
@@ -55,4 +64,7 @@ service BlubberService {
 
 	// Get some information about the block.
 	rpc StatBlob (BlockId) returns (BlubberStat);
+
+	// Copy a blubber block from a different server.
+	rpc CopyBlob (BlockSource) returns (BlockId);
 }

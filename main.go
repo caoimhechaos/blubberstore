@@ -132,6 +132,7 @@ func main() {
 		blob_path: blob_path,
 		insecure:  insecure,
 		priv:      rsa_key,
+		tlsConfig: config,
 	}
 	ra = &RESTAdapter{
 		store: bs,

@@ -85,3 +85,9 @@ func (self *BlubberService) StatBlob(req BlockId, res *BlubberStat) error {
 
 	return nil
 }
+
+func (self *BlubberService) CopyBlob(src BlockSource, res *BlockId) error {
+	res.BlockId = make([]byte, len(src.BlockId))
+	copy(res.BlockId, src.BlockId)
+	return self.store.CopyBlob(src.GetBlockId(), src.GetSourceHost())
+}
