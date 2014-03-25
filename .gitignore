@@ -25,5 +25,5 @@ _cgo_export.*
 _testmain.go
 
 *.exe
-blubberstore
+blubber-service/blubber-service
 copy-cli/copy-cli

@@ -35,6 +35,8 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strconv"
+
+	"github.com/caoimhechaos/blubberstore"
 )
 
 // Adapter to process HTTP requests in a REST-like fashion.
@@ -64,7 +66,7 @@ func (self *RESTAdapter) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, "OK", http.StatusOK)
 		}
 	} else if req.Method == "GET" {
-		var stat BlubberStat
+		var stat blubberstore.BlubberStat
 		stat, err = self.store.StatBlob(blobId)
 		if err == nil {
 			rw.Header().Set("Content-Id",
@@ -89,7 +91,7 @@ func (self *RESTAdapter) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		}
 	} else if req.Method == "HEAD" {
-		var stat BlubberStat
+		var stat blubberstore.BlubberStat
 		stat, err = self.store.StatBlob(blobId)
 		if err == nil {
 			rw.Header().Set("Content-Id",

@@ -46,6 +46,7 @@ import (
 	"net/rpc"
 	"os"
 
+	"github.com/caoimhechaos/blubberstore"
 	"github.com/caoimhechaos/go-urlconnection"
 )
 
@@ -54,8 +55,8 @@ func main() {
 	var client *rpc.Client
 	var conn net.Conn
 
-	var req BlockSource
-	var res BlockId
+	var req blubberstore.BlockSource
+	var res blubberstore.BlockId
 
 	var doozer_uri, doozer_buri string
 	var cert, key, cacert string

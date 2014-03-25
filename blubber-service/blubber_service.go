@@ -33,20 +33,24 @@ package main
 
 import (
 	"bytes"
+
+	"github.com/caoimhechaos/blubberstore"
 )
 
 type BlubberService struct {
 	store *blubberStore
 }
 
-func (self *BlubberService) StoreBlob(req BlockWithData, res *BlockId) error {
+func (self *BlubberService) StoreBlob(
+	req blubberstore.BlockWithData, res *blubberstore.BlockId) error {
 	var rd *bytes.Reader = bytes.NewReader(req.BlockData)
 	res.BlockId = make([]byte, len(req.BlockId))
 	copy(res.BlockId, req.BlockId)
 	return self.store.StoreBlob(req.GetBlockId(), rd)
 }
 
-func (self *BlubberService) RetrieveBlob(req BlockId, res *BlockWithData) error {
+func (self *BlubberService) RetrieveBlob(
+	req blubberstore.BlockId, res *blubberstore.BlockWithData) error {
 	var buf *bytes.Buffer = new(bytes.Buffer)
 	var err error
 
@@ -62,14 +66,16 @@ func (self *BlubberService) RetrieveBlob(req BlockId, res *BlockWithData) error 
 	return nil
 }
 
-func (self *BlubberService) DeleteBlob(req BlockId, res *BlockId) error {
+func (self *BlubberService) DeleteBlob(
+	req blubberstore.BlockId, res *blubberstore.BlockId) error {
 	res.BlockId = make([]byte, len(req.BlockId))
 	copy(res.BlockId, req.BlockId)
 	return self.store.DeleteBlob(req.GetBlockId())
 }
 
-func (self *BlubberService) StatBlob(req BlockId, res *BlubberStat) error {
-	var stat BlubberStat
+func (self *BlubberService) StatBlob(
+	req blubberstore.BlockId, res *blubberstore.BlubberStat) error {
+	var stat blubberstore.BlubberStat
 	var err error
 
 	stat, err = self.store.StatBlob(req.GetBlockId())
@@ -86,7 +92,8 @@ func (self *BlubberService) StatBlob(req BlockId, res *BlubberStat) error {
 	return nil
 }
 
-func (self *BlubberService) CopyBlob(src BlockSource, res *BlockId) error {
+func (self *BlubberService) CopyBlob(
+	src blubberstore.BlockSource, res *blubberstore.BlockId) error {
 	res.BlockId = make([]byte, len(src.BlockId))
 	copy(res.BlockId, src.BlockId)
 	return self.store.CopyBlob(src.GetBlockId(), src.GetSourceHost())

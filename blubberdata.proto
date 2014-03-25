@@ -1,4 +1,4 @@
-package main;
+package blubberstore;
 
 // Status of a block of blubber.
 message BlubberStat {

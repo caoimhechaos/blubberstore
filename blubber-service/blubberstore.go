@@ -49,6 +49,7 @@ import (
 	"strconv"
 
 	"code.google.com/p/goprotobuf/proto"
+	"github.com/caoimhechaos/blubberstore"
 )
 
 // Special "writer" which just counts the number of bytes passed through.
@@ -103,7 +104,7 @@ func (self *blubberStore) blobId2FileName(blobId []byte) (
 // The contents of the blob will be read from input.
 func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	var outstream cipher.StreamWriter
-	var bh BlubberBlockHeader
+	var bh blubberstore.BlubberBlockHeader
 	var aescipher cipher.Block
 	var cksum hash.Hash = sha256.New()
 	var parent_dir, file_prefix string
@@ -195,7 +196,7 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 
 // Extract the blubber block head for the given blob ID and return it.
 func (self *blubberStore) extractBlockHead(blobId []byte) (
-	bh *BlubberBlockHeader, err error) {
+	bh *blubberstore.BlubberBlockHeader, err error) {
 	var file_prefix string
 	var data []byte
 
@@ -210,7 +211,7 @@ func (self *blubberStore) extractBlockHead(blobId []byte) (
 		}
 	}
 
-	bh = new(BlubberBlockHeader)
+	bh = new(blubberstore.BlubberBlockHeader)
 	err = proto.Unmarshal(data, bh)
 	return
 }
@@ -220,7 +221,7 @@ func (self *blubberStore) extractBlockHead(blobId []byte) (
 func (self *blubberStore) RetrieveBlob(blobId []byte, rw io.Writer) error {
 	var file_prefix string
 	var infile *os.File
-	var bh *BlubberBlockHeader
+	var bh *blubberstore.BlubberBlockHeader
 	var instream cipher.StreamReader
 	var aescipher cipher.Block
 	var err error
@@ -271,8 +272,8 @@ func (self *blubberStore) DeleteBlob(blobId []byte) error {
 
 // Get some details about the specified blob.
 func (self *blubberStore) StatBlob(blobId []byte) (
-	ret BlubberStat, err error) {
-	var bh *BlubberBlockHeader
+	ret blubberstore.BlubberStat, err error) {
+	var bh *blubberstore.BlubberBlockHeader
 
 	bh, err = self.extractBlockHead(blobId)
 	if err != nil {
@@ -297,7 +298,7 @@ func (self *blubberStore) CopyBlob(blobId []byte, source string) error {
 		},
 	}
 	var proto string
-	var stat, remote_stat BlubberStat
+	var stat, remote_stat blubberstore.BlubberStat
 	var resp *http.Response
 	var err error
 
