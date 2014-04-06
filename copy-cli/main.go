@@ -33,17 +33,9 @@
 package main
 
 import (
-	"bufio"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/hex"
 	"flag"
-	"io"
-	"io/ioutil"
 	"log"
-	"net"
-	"net/http"
-	"net/rpc"
 	"os"
 
 	"github.com/caoimhechaos/blubberstore"
@@ -51,12 +43,8 @@ import (
 )
 
 func main() {
-	var config *tls.Config = new(tls.Config)
-	var client *rpc.Client
-	var conn net.Conn
-
 	var req blubberstore.BlockSource
-	var res blubberstore.BlockId
+	var client *blubberstore.BlubberRPCClient
 
 	var doozer_uri, doozer_buri string
 	var cert, key, cacert string
@@ -73,7 +61,7 @@ func main() {
 	flag.StringVar(&doozer_uri, "doozer-boot-uri",
 		os.Getenv("DOOZER_BOOT_URI"),
 		"Boot URI of the Doozer lock service.")
-	flag.StringVar(&server, "server", "[::]:0",
+	flag.StringVar(&server, "server", "tcp://[::]:0",
 		"URL to connect and send commands to.")
 
 	flag.StringVar(&cert, "cert", "", "Path to the X.509 certificate.")
@@ -83,33 +71,6 @@ func main() {
 		"Disable the use of client certificates (for development/debugging).")
 	flag.Parse()
 
-	if !insecure {
-		var tlscert tls.Certificate
-		var certdata []byte
-
-		config.ClientAuth = tls.VerifyClientCertIfGiven
-		config.MinVersion = tls.VersionTLS12
-
-		tlscert, err = tls.LoadX509KeyPair(cert, key)
-		if err != nil {
-			log.Fatal("Unable to load X.509 key pair: ", err)
-		}
-		config.Certificates = append(config.Certificates, tlscert)
-		config.BuildNameToCertificate()
-
-		config.ClientCAs = x509.NewCertPool()
-		certdata, err = ioutil.ReadFile(cacert)
-		if err != nil {
-			log.Fatal("Error reading ", cacert, ": ", err)
-		}
-		if !config.ClientCAs.AppendCertsFromPEM(certdata) {
-			log.Fatal("Unable to load the X.509 certificates from ", cacert)
-		}
-
-		// Configure client side encryption.
-		config.RootCAs = config.ClientCAs
-	}
-
 	if len(doozer_uri) > 0 {
 		err = urlconnection.SetupDoozer(doozer_buri, doozer_uri)
 		if err != nil {
@@ -117,30 +78,12 @@ func main() {
 		}
 	}
 
-	// Establish a TCP connection and start a TLS exchange.
-	conn, err = urlconnection.Connect(server)
+	client, err = blubberstore.NewBlubberRPCClient(server, cert, key,
+		cacert, insecure)
 	if err != nil {
-		log.Fatal("Error connecting to ", server, ": ", err)
+		log.Fatal("Error establishing blubber connection to ", server,
+			": ", err)
 	}
-	if !insecure {
-		conn = tls.Client(conn, config)
-	}
-
-	// Start the RPC connection.
-	_, err = io.WriteString(conn,
-		"CONNECT "+rpc.DefaultRPCPath+" HTTP/1.0\r\n\r\n")
-	if err != nil {
-		log.Fatal("Error requesting RPC channel to ", server, ": ", err)
-	}
-
-	// Let's see what the server thinks about that.
-	_, err = http.ReadResponse(bufio.NewReader(conn),
-		&http.Request{Method: "CONNECT"})
-	if err != nil {
-		log.Fatal("Error establishing RPC channel to ", server, ": ", err)
-	}
-
-	client = rpc.NewClient(conn)
 
 	req.BlockId, err = hex.DecodeString(blob_id)
 	if err != nil {
@@ -148,10 +91,10 @@ func main() {
 	}
 	req.SourceHost = &source
 
-	err = client.Call("BlubberService.CopyBlob", &req, &res)
+	err = client.CopyBlob(req)
 	if err != nil {
 		log.Fatal("Unable to copy block ", blob_id, ": ", err)
 	}
 
-	log.Print("Copied block ", res.GetBlockId())
+	log.Print("Copied block ", blob_id)
 }
