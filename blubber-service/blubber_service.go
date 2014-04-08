@@ -88,6 +88,7 @@ func (self *BlubberService) StatBlob(
 	res.Checksum = make([]byte, len(stat.Checksum))
 	copy(res.Checksum, stat.Checksum)
 	res.Size = stat.Size
+	res.Timestamp = stat.Timestamp
 
 	return nil
 }

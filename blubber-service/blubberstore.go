@@ -47,6 +47,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"code.google.com/p/goprotobuf/proto"
 	"github.com/caoimhechaos/blubberstore"
@@ -165,8 +166,8 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 
 	// Fill in the last bits of the blob header.
 	bh.Checksum = cksum.Sum(bh.Checksum)
-	bh.Size = new(uint64)
-	*bh.Size = counter.BytesWritten()
+	bh.Size = proto.Uint64(counter.BytesWritten())
+	bh.Timestamp = proto.Uint64(uint64(time.Now().Unix()))
 	buf, err = proto.Marshal(&bh)
 	if err != nil {
 		return err
@@ -287,6 +288,7 @@ func (self *blubberStore) StatBlob(blobId []byte) (
 	copy(ret.Checksum, bh.Checksum)
 
 	ret.Size = bh.Size
+	ret.Timestamp = bh.Timestamp
 	return
 }
 
