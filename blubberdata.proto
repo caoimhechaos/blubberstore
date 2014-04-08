@@ -59,6 +59,47 @@ message BlockSource {
 	required string source_host = 2;
 }
 
+// The status on one individual block on a specific server.
+message ServerBlockStatus {
+	// The host:port pair of the server.
+	required string host_port = 1;
+
+	// The checksum as reported by that server.
+	required bytes checksum = 2;
+
+	// The point in time when the block was written to the server,
+	// in seconds since January 1, 1970.
+	required uint64 timestamp = 3;
+}
+
+// A container for the status of a given block.
+message BlockStatus {
+	// ID of the block.
+	required bytes block_id = 1;
+
+	// Required replication factor for the block.
+	required uint32 replication_factor = 2;
+
+	// List of all block status records known about the block.
+	repeated ServerBlockStatus servers = 3;
+}
+
+// A blob report package, consisting of the stat of the blob and the details
+// about the host.
+message BlockReport {
+	// The servers which the block is reported to be located on.
+	repeated string server = 1;
+
+	// More details about the block.
+	required BlubberStat status = 2;
+}
+
+// List of servers which currently hold the block.
+message BlockHolderList {
+	// The host:port combination of the servers in question.
+	repeated string host_port = 1;
+}
+
 // The main Blubber Store RPC service.
 service BlubberService {
 	// Store the blubber black passed in under the given block ID.
@@ -75,4 +116,14 @@ service BlubberService {
 
 	// Copy a blubber block from a different server.
 	rpc CopyBlob (BlockSource) returns (BlockId);
+}
+
+// Blubber block to server directory service.
+service BlubberBlockDirectory {
+	// Report to the directory that the block with the given properties is
+	// now stored on the specified server.
+	rpc ReportBlob (BlockReport) returns (BlockId);
+
+	// Look up all the hosts currently known to hold the requested block.
+	rpc LookupBlob (BlockId) returns (BlockHolderList);
 }
