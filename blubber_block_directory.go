@@ -86,7 +86,7 @@ func NewBlubberBlockDirectory(
 	// Read all data from the state dump file.
 	reader = serialdata.NewSerialDataReader(stateDumpFile)
 
-	for err = reader.ReadMessage(&bs); err != nil; err = reader.ReadMessage(&bs) {
+	for err = reader.ReadMessage(&bs); err == nil; err = reader.ReadMessage(&bs) {
 		var blockId string = string(bs.GetBlockId())
 		var srv *ServerBlockStatus
 
@@ -138,7 +138,7 @@ func NewBlubberBlockDirectory(
 			}
 
 			reader = serialdata.NewSerialDataReader(journal)
-			for err = reader.ReadMessage(&br); err != nil; err = reader.ReadMessage(&br) {
+			for err = reader.ReadMessage(&br); err == nil; err = reader.ReadMessage(&br) {
 				ret.ApplyBlockReport(&br)
 			}
 			journal.Close()
@@ -322,13 +322,13 @@ func (b *BlubberBlockDirectory) dumpState() {
 	}
 
 	// Try moving the old state dump out of the way.
-	err = os.Rename(b.blockMapPrefix+".statedump", b.blockMapPrefix+".old")
-	if err != nil {
+	err = os.Rename(b.blockMapPrefix+".blockmap", b.blockMapPrefix+".old")
+	if err != nil && !os.IsNotExist(err) {
 		log.Print("Error moving away old state dump: ", err)
 	}
 
 	// Move the new state dump into the place where the old one used to be.
-	err = os.Rename(b.blockMapPrefix+".new", b.blockMapPrefix+".statedump")
+	err = os.Rename(b.blockMapPrefix+".new", b.blockMapPrefix+".blockmap")
 	if err != nil {
 		log.Print("Error moving new state dump into place: ", err)
 		os.Remove(b.blockMapPrefix + ".new")
@@ -336,7 +336,7 @@ func (b *BlubberBlockDirectory) dumpState() {
 	}
 
 	err = os.Remove(b.blockMapPrefix + ".old")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		log.Print("Error deleting old state dump: ", err)
 	}
 
