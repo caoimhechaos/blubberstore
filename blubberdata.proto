@@ -126,4 +126,7 @@ service BlubberBlockDirectory {
 
 	// Look up all the hosts currently known to hold the requested block.
 	rpc LookupBlob (BlockId) returns (BlockHolderList);
+
+	// Remove the given host from the holders of the blob.
+	rpc RemoveBlobHolder (BlockReport) returns (BlockId);
 }

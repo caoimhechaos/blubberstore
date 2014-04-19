@@ -232,6 +232,22 @@ func (b *BlubberBlockDirectory) LookupBlob(
 	return nil
 }
 
+// Remove the given host from the holders of the blob.
+func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockReport,
+	res *BlockId) error {
+	var server string
+	b.blockMapMtx.Lock()
+	defer b.blockMapMtx.Unlock()
+
+	for _, server = range report.GetServer() {
+		delete(b.blockMap[string(report.Status.GetBlockId())],
+			server)
+	}
+	res.BlockId = make([]byte, len(report.GetStatus().GetBlockId()))
+	copy(res.BlockId, report.GetStatus().GetBlockId())
+	return nil
+}
+
 // Write a new dump of the current state of block/server mappings.
 func (b *BlubberBlockDirectory) dumpState() {
 	var now time.Time = time.Now()
