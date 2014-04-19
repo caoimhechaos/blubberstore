@@ -25,5 +25,8 @@ _cgo_export.*
 _testmain.go
 
 *.exe
+*.blockmap
+
+blockdirectory/blockdirectory
 blubber-service/blubber-service
 copy-cli/copy-cli
