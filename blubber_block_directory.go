@@ -61,7 +61,7 @@ func NewBlubberBlockDirectory(
 	journalPrefix, blockMapPrefix string) (*BlubberBlockDirectory, error) {
 	var now time.Time = time.Now()
 	var newpath string = journalPrefix + now.Format("2006-01-02.150405")
-	var blockMap map[string]map[string]*ServerBlockStatus
+	var blockMap map[string]map[string]*ServerBlockStatus = make(map[string]map[string]*ServerBlockStatus)
 	var parentDir *os.File
 	var stateDumpFile, newJournal *os.File
 	var reader *serialdata.SerialDataReader
@@ -79,7 +79,7 @@ func NewBlubberBlockDirectory(
 	if err != nil && os.IsNotExist(err) {
 		log.Print("Warning: created new empty block map")
 		stateDumpFile, err = os.Create(blockMapPrefix + ".blockmap")
-	} else {
+	} else if err != nil {
 		return nil, errors.New("Unable to open block map: " + err.Error())
 	}
 
