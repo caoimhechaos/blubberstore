@@ -53,8 +53,15 @@ type BlubberRPCClient struct {
 	insecure bool
 }
 
+// A client to a blubber directory.
+type BlubberDirectoryClient struct {
+	config   *tls.Config
+	client   *rpc.Client
+	insecure bool
+}
+
 /*
-Create a new blubber client connecting to the given server.
+Create a new generic RPC client connecting to the given server.
 
 uri should be an URI pointing to the desired server and port.
 cert, key and cacert should be the path of the X.509 client
@@ -62,10 +69,9 @@ certificate, private key and CA certificate, respectively.
 The insecure flag can be used to disable encryption (only for
 testing and if the server is also running in insecure mode).
 */
-func NewBlubberRPCClient(uri, cert, key, cacert string, insecure bool) (
-	*BlubberRPCClient, error) {
+func NewRPCClient(uri, cert, key, cacert string, insecure bool) (
+	*rpc.Client, *tls.Config, error) {
 	var config *tls.Config = new(tls.Config)
-	var client *rpc.Client
 	var conn net.Conn
 	var err error
 
@@ -78,7 +84,7 @@ func NewBlubberRPCClient(uri, cert, key, cacert string, insecure bool) (
 
 		tlscert, err = tls.LoadX509KeyPair(cert, key)
 		if err != nil {
-			return nil, errors.New("Unable to load X.509 key pair: " +
+			return nil, nil, errors.New("Unable to load X.509 key pair: " +
 				err.Error())
 		}
 		config.Certificates = append(config.Certificates, tlscert)
@@ -87,11 +93,11 @@ func NewBlubberRPCClient(uri, cert, key, cacert string, insecure bool) (
 		config.ClientCAs = x509.NewCertPool()
 		certdata, err = ioutil.ReadFile(cacert)
 		if err != nil {
-			return nil, errors.New("Error reading " + cacert + ": " +
+			return nil, nil, errors.New("Error reading " + cacert + ": " +
 				err.Error())
 		}
 		if !config.ClientCAs.AppendCertsFromPEM(certdata) {
-			return nil, errors.New(
+			return nil, nil, errors.New(
 				"Unable to load the X.509 certificates from " + cacert)
 		}
 
@@ -102,7 +108,7 @@ func NewBlubberRPCClient(uri, cert, key, cacert string, insecure bool) (
 	// Establish a TCP connection and start a TLS exchange.
 	conn, err = urlconnection.Connect(uri)
 	if err != nil {
-		return nil, errors.New("Error connecting to " + uri + ": " +
+		return nil, nil, errors.New("Error connecting to " + uri + ": " +
 			err.Error())
 	}
 	if !insecure {
@@ -113,19 +119,40 @@ func NewBlubberRPCClient(uri, cert, key, cacert string, insecure bool) (
 	_, err = io.WriteString(conn,
 		"CONNECT "+rpc.DefaultRPCPath+" HTTP/1.0\r\n\r\n")
 	if err != nil {
-		return nil, errors.New("Error requesting RPC channel to " + uri +
-			": " + err.Error())
+		return nil, nil, errors.New("Error requesting RPC channel to " +
+			uri + ": " + err.Error())
 	}
 
 	// Let's see what the server thinks about that.
 	_, err = http.ReadResponse(bufio.NewReader(conn),
 		&http.Request{Method: "CONNECT"})
 	if err != nil {
-		return nil, errors.New("Error establishing RPC channel to " + uri +
-			": " + err.Error())
+		return nil, nil, errors.New("Error establishing RPC channel to " +
+			uri + ": " + err.Error())
 	}
 
-	client = rpc.NewClient(conn)
+	return rpc.NewClient(conn), config, nil
+}
+
+/*
+Create a new blubber client connecting to the given server.
+
+uri should be an URI pointing to the desired server and port.
+cert, key and cacert should be the path of the X.509 client
+certificate, private key and CA certificate, respectively.
+The insecure flag can be used to disable encryption (only for
+testing and if the server is also running in insecure mode).
+*/
+func NewBlubberRPCClient(uri, cert, key, cacert string, insecure bool) (
+	*BlubberRPCClient, error) {
+	var client *rpc.Client
+	var config *tls.Config
+	var err error
+
+	client, config, err = NewRPCClient(uri, cert, key, cacert, insecure)
+	if err != nil {
+		return nil, err
+	}
 
 	return &BlubberRPCClient{
 		config:   config,
@@ -189,4 +216,57 @@ server. It will overwrite any local variants of the blob.
 func (self *BlubberRPCClient) CopyBlob(source BlockSource) error {
 	var id BlockId
 	return self.client.Call("BlubberService.CopyBlob", source, &id)
+}
+
+/*
+Create a new blubber directory client connecting to the given server.
+
+uri should be an URI pointing to the desired server and port.
+cert, key and cacert should be the path of the X.509 client
+certificate, private key and CA certificate, respectively.
+The insecure flag can be used to disable encryption (only for
+testing and if the server is also running in insecure mode).
+*/
+func NewBlubberDirectoryClient(uri, cert, key, cacert string, insecure bool) (
+	*BlubberDirectoryClient, error) {
+	var client *rpc.Client
+	var config *tls.Config
+	var err error
+
+	client, config, err = NewRPCClient(uri, cert, key, cacert, insecure)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BlubberDirectoryClient{
+		config:   config,
+		client:   client,
+		insecure: insecure,
+	}, nil
+}
+
+/*
+Report to the directory that the block with the given properties is
+now stored on the specified server.
+*/
+func (b *BlubberDirectoryClient) ReportBlob(report BlockReport) error {
+	var id BlockId
+	return b.client.Call("BlubberBlockDirectory.ReportBlob", report, &id)
+}
+
+/*
+Look up all the hosts currently known to hold the requested block.
+*/
+func (b *BlubberDirectoryClient) LookupBlob(id BlockId) (list *BlockHolderList, err error) {
+	list = new(BlockHolderList)
+	err = b.client.Call("BlubberBlockDirectory.LookupBlob", id, &list)
+	return
+}
+
+/*
+Remove the given host from the holders of the blob.
+*/
+func (b *BlubberDirectoryClient) RemoveBlobHolder(rep BlockReport) error {
+	var id BlockId
+	return b.client.Call("BlubberBlockDirectory.RemoveBlobHolder", rep, &id)
 }
