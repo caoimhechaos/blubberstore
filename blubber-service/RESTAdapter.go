@@ -59,7 +59,8 @@ func (self *RESTAdapter) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Content-Id", hex.EncodeToString(blobId))
 
 	if req.Method == "PUT" {
-		err = self.store.StoreBlob(blobId, req.Body)
+		var overwrite bool = req.Header.Get("X-Overwrite") == "true"
+		err = self.store.StoreBlob(blobId, req.Body, overwrite)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		} else {

@@ -46,7 +46,7 @@ func (self *BlubberService) StoreBlob(
 	var rd *bytes.Reader = bytes.NewReader(req.BlockData)
 	res.BlockId = make([]byte, len(req.BlockId))
 	copy(res.BlockId, req.BlockId)
-	return self.store.StoreBlob(req.GetBlockId(), rd)
+	return self.store.StoreBlob(req.GetBlockId(), rd, req.GetOverwrite())
 }
 
 func (self *BlubberService) RetrieveBlob(

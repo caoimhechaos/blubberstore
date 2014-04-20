@@ -48,6 +48,9 @@ message BlockWithData {
 
 	// The actual contents of the blubber block to be written.
 	required bytes block_data = 2;
+
+	// Whether or not to overwrite existing blobs.
+	optional bool overwrite = 3 [default=true];
 }
 
 // Request for copying a blob from the given host.

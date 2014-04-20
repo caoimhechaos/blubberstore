@@ -105,7 +105,8 @@ func (self *blubberStore) blobId2FileName(blobId []byte) (
 
 // Create a new blob with the given blobId, or overwrite an existing one.
 // The contents of the blob will be read from input.
-func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
+func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader,
+	overwrite bool) error {
 	var outstream cipher.StreamWriter
 	var bh blubberstore.BlubberBlockHeader
 	var report blubberstore.BlockReport
@@ -115,6 +116,7 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	var counter CountingWriter
 	var outfile *os.File
 	var buf []byte
+	var flag int
 	var n int
 	var err error
 
@@ -146,7 +148,11 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	}
 
 	// Now, write the actual data.
-	outfile, err = os.Create(file_prefix + ".data")
+	flag = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	if !overwrite {
+		flag |= os.O_EXCL
+	}
+	outfile, err = os.OpenFile(file_prefix+".data", flag, 0600)
 	if err != nil {
 		return err
 	}
@@ -360,7 +366,7 @@ func (self *blubberStore) CopyBlob(blobId []byte, source string) error {
 	}
 
 	// Copy the remote contents into a local blob.
-	err = self.StoreBlob(blobId, resp.Body)
+	err = self.StoreBlob(blobId, resp.Body, true)
 	if err != nil {
 		return err
 	}
