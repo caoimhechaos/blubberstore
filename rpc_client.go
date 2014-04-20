@@ -270,3 +270,24 @@ func (b *BlubberDirectoryClient) RemoveBlobHolder(rep BlockRemovalReport) error 
 	var id BlockId
 	return b.client.Call("BlubberBlockDirectory.RemoveBlobHolder", rep, &id)
 }
+
+/*
+Delete all block ownerships associated with the given host. This is very
+useful e.g. if a host goes down or data is lost on it.
+*/
+func (b *BlubberDirectoryClient) ExpireHost(hosts BlockHolderList) error {
+	var rv BlockHolderList
+	return b.client.Call("BlubberDirectoryClient.ExpireHost", hosts, &rv)
+}
+
+/*
+Get a list of all hosts known to own blocks. This is mostly used by the
+cleanup jobs.
+*/
+func (b *BlubberDirectoryClient) ListHosts() (
+	hosts *BlockHolderList, err error) {
+	var mt Empty
+	hosts = new(BlockHolderList)
+	err = b.client.Call("BlubberDirectoryClient.ListHosts", mt, &hosts)
+	return
+}
