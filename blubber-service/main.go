@@ -141,7 +141,10 @@ func main() {
 		l, err = exporter.NewExportedTLSPort(
 			"tcp", bind, "blubber-service", config)
 	} else {
-		tls.Listen("tcp", bind, config)
+		l, err = tls.Listen("tcp", bind, config)
+	}
+	if err != nil {
+		log.Fatal("Unable to bind to ", bind, ": ", err)
 	}
 
 	if len(directory_service) > 0 {
