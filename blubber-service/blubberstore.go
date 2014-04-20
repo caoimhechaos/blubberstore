@@ -71,10 +71,12 @@ func (self *CountingWriter) BytesWritten() uint64 {
 }
 
 type blubberStore struct {
-	blob_path string
-	insecure  bool
-	priv      *rsa.PrivateKey
-	tlsConfig *tls.Config
+	bindHostPort    string
+	blobPath        string
+	directoryClient *blubberstore.BlubberDirectoryClient
+	insecure        bool
+	priv            *rsa.PrivateKey
+	tlsConfig       *tls.Config
 }
 
 // Construct the file name prefix for the blob with the given blob ID.
@@ -97,7 +99,7 @@ func (self *blubberStore) blobId2FileName(blobId []byte) (
 		second_dir = first_dir + "00"
 	}
 
-	parent_dir = self.blob_path + "/" + first_dir + "/" + second_dir
+	parent_dir = self.blobPath + "/" + first_dir + "/" + second_dir
 	return parent_dir + "/" + path_name, parent_dir
 }
 
@@ -106,6 +108,7 @@ func (self *blubberStore) blobId2FileName(blobId []byte) (
 func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	var outstream cipher.StreamWriter
 	var bh blubberstore.BlubberBlockHeader
+	var report blubberstore.BlockReport
 	var aescipher cipher.Block
 	var cksum hash.Hash = sha256.New()
 	var parent_dir, file_prefix string
@@ -192,7 +195,30 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader) error {
 	if n < len(buf) {
 		return errors.New("Short write to file")
 	}
-	return outfile.Close()
+
+	err = outfile.Close()
+	if err != nil {
+		return err
+	}
+
+	// If we don't run under a blob directory, this is the end of it.
+	if self.directoryClient == nil {
+		return nil
+	}
+
+	// Now, report the new blob to the directory service.
+	report.Server = append(report.Server, self.bindHostPort)
+	report.Status.BlockId = make([]byte, len(blobId))
+	report.Status.Checksum = make([]byte, len(bh.Checksum))
+	report.Status.Size = bh.Size
+	report.Status.Timestamp = bh.Timestamp
+
+	copy(report.Status.BlockId, blobId)
+	copy(report.Status.Checksum, bh.Checksum)
+
+	// Since people need to be able to do e.g. quorum writes, we need to
+	// wait here synchronously for the directory service.
+	return self.directoryClient.ReportBlob(report)
 }
 
 // Extract the blubber block head for the given blob ID and return it.
@@ -260,6 +286,7 @@ func (self *blubberStore) RetrieveBlob(blobId []byte, rw io.Writer) error {
 
 // Delete the blob with the given blob ID.
 func (self *blubberStore) DeleteBlob(blobId []byte) error {
+	var report blubberstore.BlockRemovalReport
 	var prefix string
 	var err error
 
@@ -268,7 +295,22 @@ func (self *blubberStore) DeleteBlob(blobId []byte) error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(prefix + ".crypthead")
+	err = os.Remove(prefix + ".crypthead")
+	if err != nil {
+		return err
+	}
+
+	// If we don't run under a blob directory, this is the end of it.
+	if self.directoryClient == nil {
+		return nil
+	}
+
+	// Now report the deletion of the blob to the directory server.
+	report.BlockId = make([]byte, len(blobId))
+	report.Server = append(report.Server, self.bindHostPort)
+
+	copy(report.BlockId, blobId)
+	return self.directoryClient.RemoveBlobHolder(report)
 }
 
 // Get some details about the specified blob.

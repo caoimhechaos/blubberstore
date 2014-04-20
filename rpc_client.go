@@ -266,7 +266,7 @@ func (b *BlubberDirectoryClient) LookupBlob(id BlockId) (list *BlockHolderList, 
 /*
 Remove the given host from the holders of the blob.
 */
-func (b *BlubberDirectoryClient) RemoveBlobHolder(rep BlockReport) error {
+func (b *BlubberDirectoryClient) RemoveBlobHolder(rep BlockRemovalReport) error {
 	var id BlockId
 	return b.client.Call("BlubberBlockDirectory.RemoveBlobHolder", rep, &id)
 }

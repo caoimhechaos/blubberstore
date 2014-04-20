@@ -45,6 +45,7 @@ import (
 	"os"
 
 	"ancient-solutions.com/doozer/exportedservice"
+	"github.com/caoimhechaos/blubberstore"
 )
 
 func main() {
@@ -52,11 +53,13 @@ func main() {
 	var bs *blubberStore
 	var srv *BlubberService
 	var config *tls.Config = new(tls.Config)
+	var directory_client *blubberstore.BlubberDirectoryClient
 	var rsa_key *rsa.PrivateKey
 	var l net.Listener
 
 	var doozer_uri, doozer_buri string
 	var cert, key, cacert string
+	var directory_service string
 	var blob_path string
 	var bind string
 	var insecure bool
@@ -77,6 +80,9 @@ func main() {
 	flag.StringVar(&cacert, "cacert", "", "Path to the X.509 CA certificate.")
 	flag.BoolVar(&insecure, "insecure", false,
 		"Disable the use of client certificates (for development/debugging).")
+
+	flag.StringVar(&directory_service, "directory-service", "",
+		"Directory service to report stored blobs to. ")
 	flag.Parse()
 
 	if !insecure {
@@ -128,15 +134,26 @@ func main() {
 		tls.Listen("tcp", bind, config)
 	}
 
+	if len(directory_service) > 0 {
+		directory_client, err = blubberstore.NewBlubberDirectoryClient(
+			directory_service, cert, key, cacert, insecure)
+		if err != nil {
+			log.Fatal("Can't connect to the blubber directory service at ",
+				directory_service, ": ", err)
+		}
+	}
+
 	log.Print("Started listening to http://", l.Addr())
 
 	rpc.HandleHTTP()
 
 	bs = &blubberStore{
-		blob_path: blob_path,
-		insecure:  insecure,
-		priv:      rsa_key,
-		tlsConfig: config,
+		bindHostPort:    bind,
+		blobPath:        blob_path,
+		directoryClient: directory_client,
+		insecure:        insecure,
+		priv:            rsa_key,
+		tlsConfig:       config,
 	}
 	ra = &RESTAdapter{
 		store: bs,

@@ -84,7 +84,7 @@ message BlockStatus {
 	repeated ServerBlockStatus servers = 3;
 }
 
-// A blob report package, consisting of the stat of the blob and the details
+// A blob report message, consisting of the stat of the blob and the details
 // about the host.
 message BlockReport {
 	// The servers which the block is reported to be located on.
@@ -92,6 +92,16 @@ message BlockReport {
 
 	// More details about the block.
 	required BlubberStat status = 2;
+}
+
+// A blob removal report message, consisting only of the ID of the blob
+// and the list of hosts it was removed from.
+message BlockRemovalReport {
+	// The ID of the block which is being removed.
+	required bytes block_id = 1;
+
+	// The list of servers the block is reported to be removed from.
+	repeated string server = 2;
 }
 
 // List of servers which currently hold the block.
@@ -128,5 +138,5 @@ service BlubberBlockDirectory {
 	rpc LookupBlob (BlockId) returns (BlockHolderList);
 
 	// Remove the given host from the holders of the blob.
-	rpc RemoveBlobHolder (BlockReport) returns (BlockId);
+	rpc RemoveBlobHolder (BlockRemovalReport) returns (BlockId);
 }

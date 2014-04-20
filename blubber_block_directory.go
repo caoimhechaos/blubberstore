@@ -233,18 +233,18 @@ func (b *BlubberBlockDirectory) LookupBlob(
 }
 
 // Remove the given host from the holders of the blob.
-func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockReport,
+func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockRemovalReport,
 	res *BlockId) error {
 	var server string
 	b.blockMapMtx.Lock()
 	defer b.blockMapMtx.Unlock()
 
 	for _, server = range report.GetServer() {
-		delete(b.blockMap[string(report.Status.GetBlockId())],
+		delete(b.blockMap[string(report.GetBlockId())],
 			server)
 	}
-	res.BlockId = make([]byte, len(report.GetStatus().GetBlockId()))
-	copy(res.BlockId, report.GetStatus().GetBlockId())
+	res.BlockId = make([]byte, len(report.GetBlockId()))
+	copy(res.BlockId, report.GetBlockId())
 	return nil
 }
 
