@@ -111,7 +111,17 @@ func main() {
 		config.RootCAs = config.ClientCAs
 	}
 
-	if insecure {
+	if insecure && len(doozer_uri) > 0 {
+		var exporter *exportedservice.ServiceExporter
+
+		exporter, err = exportedservice.NewExporter(
+			doozer_uri, doozer_buri)
+		if err != nil {
+			log.Fatal("Error creating port exporter: ", err)
+		}
+
+		l, err = exporter.NewExportedPort("tcp", bind, "blubber-service")
+	} else if insecure {
 		l, err = net.Listen("tcp", bind)
 	} else if len(doozer_uri) > 0 {
 		var exporter *exportedservice.ServiceExporter
