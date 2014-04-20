@@ -146,13 +146,13 @@ func NewBlubberBlockDirectory(
 	}
 
 	// Start syncing the state dump to disk.
-	go ret.PeriodicallyWriteStateDump()
+	go ret.periodicallyWriteStateDump()
 
 	return ret, nil
 }
 
 // Write a complete state dump to disk regularly and remove the journals.
-func (b *BlubberBlockDirectory) PeriodicallyWriteStateDump() {
+func (b *BlubberBlockDirectory) periodicallyWriteStateDump() {
 	var c <-chan time.Time
 
 	c = time.Tick(2 * time.Minute)
