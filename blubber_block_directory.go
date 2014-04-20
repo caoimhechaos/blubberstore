@@ -276,6 +276,8 @@ func (b *BlubberBlockDirectory) ExpireHost(hosts BlockHolderList,
 	ret *BlockHolderList) error {
 	var host string
 
+	b.blockMapMtx.Lock()
+	defer b.blockMapMtx.Unlock()
 	for _, host = range hosts.HostPort {
 		var blockId string
 		for _, blockId = range b.blockHostMap[host] {
