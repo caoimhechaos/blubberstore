@@ -52,6 +52,7 @@ type BlubberBlockDirectory struct {
 	journalPrefix  string
 
 	// Mapping of block IDs to hosts which contain them to block states.
+	blockHostMap   map[string][]string
 	blockMap       map[string]map[string]*ServerBlockStatus
 	blockMapMtx    *sync.RWMutex
 	blockMapPrefix string
@@ -186,6 +187,8 @@ func (b *BlubberBlockDirectory) ApplyBlockReport(status *BlockReport) {
 				make(map[string]*ServerBlockStatus)
 		}
 		b.blockMap[string(status.Status.BlockId)][host] = sbs
+		b.blockHostMap[host] = append(b.blockHostMap[host],
+			string(status.Status.BlockId))
 	}
 }
 
@@ -240,11 +243,25 @@ func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockRemovalReport,
 	defer b.blockMapMtx.Unlock()
 
 	for _, server = range report.GetServer() {
+		var blocks []string
+		var block string
+
 		delete(b.blockMap[string(report.GetBlockId())],
 			server)
+
+		blocks = b.blockHostMap[server]
+		b.blockHostMap[server] = make([]string, 0)
+		for _, block = range blocks {
+			if block != string(report.GetBlockId()) {
+				b.blockHostMap[server] = append(b.blockHostMap[server],
+					block)
+			}
+		}
 	}
+
 	res.BlockId = make([]byte, len(report.GetBlockId()))
 	copy(res.BlockId, report.GetBlockId())
+
 	return nil
 }
 
