@@ -1,5 +1,7 @@
 package blubberstore;
 
+message Empty {}
+
 // Status of a block of blubber.
 message BlubberStat {
 	// ID of the block.
@@ -146,4 +148,8 @@ service BlubberBlockDirectory {
 	// Delete all block ownerships associated with the given host. This is
 	// very useful e.g. if a host goes down or data is lost on it.
 	rpc ExpireHosts (BlockHolderList) returns (BlockHolderList);
+
+	// Get a list of all hosts known to own blocks. This is mostly used by
+	// the cleanup jobs.
+	rpc ListHosts (Empty) returns (BlockHolderList);
 }

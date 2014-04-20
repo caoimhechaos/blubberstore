@@ -290,6 +290,20 @@ func (b *BlubberBlockDirectory) ExpireHost(hosts BlockHolderList,
 	return nil
 }
 
+// Get a list of all hosts known to own blocks. This is mostly used by the
+// cleanup jobs.
+func (b *BlubberBlockDirectory) ListHosts(void Empty, hosts *BlockHolderList) error {
+	var host string
+	b.blockMapMtx.RLock()
+	defer b.blockMapMtx.RUnlock()
+
+	for host, _ = range b.blockHostMap {
+		hosts.HostPort = append(hosts.HostPort, host)
+	}
+
+	return nil
+}
+
 // Write a new dump of the current state of block/server mappings.
 func (b *BlubberBlockDirectory) dumpState() {
 	var now time.Time = time.Now()
