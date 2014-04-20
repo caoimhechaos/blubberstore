@@ -142,4 +142,8 @@ service BlubberBlockDirectory {
 
 	// Remove the given host from the holders of the blob.
 	rpc RemoveBlobHolder (BlockRemovalReport) returns (BlockId);
+
+	// Delete all block ownerships associated with the given host. This is
+	// very useful e.g. if a host goes down or data is lost on it.
+	rpc ExpireHosts (BlockHolderList) returns (BlockHolderList);
 }

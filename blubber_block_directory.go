@@ -235,6 +235,24 @@ func (b *BlubberBlockDirectory) LookupBlob(
 	return nil
 }
 
+// Code to individually remove a given blob -> server association.
+func (b *BlubberBlockDirectory) removeBlobHolder(blobId []byte,
+	server string) {
+	var blocks []string
+	var block string
+
+	delete(b.blockMap[string(blobId)], server)
+	blocks = b.blockHostMap[server]
+	b.blockHostMap[server] = make([]string, 0)
+
+	for _, block = range blocks {
+		if block != string(blobId) {
+			b.blockHostMap[server] = append(b.blockHostMap[server],
+				block)
+		}
+	}
+}
+
 // Remove the given host from the holders of the blob.
 func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockRemovalReport,
 	res *BlockId) error {
@@ -243,24 +261,29 @@ func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockRemovalReport,
 	defer b.blockMapMtx.Unlock()
 
 	for _, server = range report.GetServer() {
-		var blocks []string
-		var block string
-
-		delete(b.blockMap[string(report.GetBlockId())],
-			server)
-
-		blocks = b.blockHostMap[server]
-		b.blockHostMap[server] = make([]string, 0)
-		for _, block = range blocks {
-			if block != string(report.GetBlockId()) {
-				b.blockHostMap[server] = append(b.blockHostMap[server],
-					block)
-			}
-		}
+		b.removeBlobHolder(report.GetBlockId(), server)
 	}
 
 	res.BlockId = make([]byte, len(report.GetBlockId()))
 	copy(res.BlockId, report.GetBlockId())
+
+	return nil
+}
+
+// Delete all block ownerships associated with the given host. This is very
+// useful e.g. if a host goes down or data is lost on it.
+func (b *BlubberBlockDirectory) ExpireHost(hosts BlockHolderList,
+	ret *BlockHolderList) error {
+	var host string
+
+	for _, host = range hosts.HostPort {
+		var blockId string
+		for _, blockId = range b.blockHostMap[host] {
+			b.removeBlobHolder([]byte(blockId), host)
+		}
+
+		ret.HostPort = append(ret.HostPort, host)
+	}
 
 	return nil
 }
