@@ -69,7 +69,7 @@ func main() {
 		"Path to find and store the blobs.")
 	flag.StringVar(&doozer_uri, "doozer-uri", os.Getenv("DOOZER_URI"),
 		"URI of the Doozer lock service.")
-	flag.StringVar(&doozer_uri, "doozer-boot-uri",
+	flag.StringVar(&doozer_buri, "doozer-boot-uri",
 		os.Getenv("DOOZER_BOOT_URI"),
 		"Boot URI of the Doozer lock service.")
 	flag.StringVar(&bind, "bind", "[::]:0",
