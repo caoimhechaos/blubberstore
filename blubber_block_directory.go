@@ -42,6 +42,7 @@ import (
 
 	"code.google.com/p/goprotobuf/proto"
 	"github.com/caoimhechaos/go-serialdata"
+	"github.com/ha/doozer"
 )
 
 // Block directory service for blubberstore.
@@ -51,6 +52,10 @@ type BlubberBlockDirectory struct {
 	journalFile    *os.File
 	journalPrefix  string
 
+	// Doozer connection (if any).
+	doozerConn         *doozer.Conn
+	blockServicePrefix string
+
 	// Mapping of block IDs to hosts which contain them to block states.
 	blockHostMap   map[string][]string
 	blockMap       map[string]map[string]*ServerBlockStatus
@@ -59,7 +64,9 @@ type BlubberBlockDirectory struct {
 }
 
 func NewBlubberBlockDirectory(
-	journalPrefix, blockMapPrefix string) (*BlubberBlockDirectory, error) {
+	doozerClient *doozer.Conn,
+	blockServicePrefix, journalPrefix, blockMapPrefix string) (
+	*BlubberBlockDirectory, error) {
 	var now time.Time = time.Now()
 	var newpath string = journalPrefix + now.Format("2006-01-02.150405")
 	var blockMap map[string]map[string]*ServerBlockStatus = make(map[string]map[string]*ServerBlockStatus)
@@ -107,12 +114,14 @@ func NewBlubberBlockDirectory(
 	}
 
 	ret = &BlubberBlockDirectory{
-		currentJournal: serialdata.NewSerialDataWriter(newJournal),
-		journalFile:    newJournal,
-		journalPrefix:  journalPrefix,
-		blockMap:       blockMap,
-		blockMapMtx:    new(sync.RWMutex),
-		blockMapPrefix: blockMapPrefix,
+		currentJournal:     serialdata.NewSerialDataWriter(newJournal),
+		journalFile:        newJournal,
+		journalPrefix:      journalPrefix,
+		doozerConn:         doozerClient,
+		blockServicePrefix: blockServicePrefix,
+		blockMap:           blockMap,
+		blockMapMtx:        new(sync.RWMutex),
+		blockMapPrefix:     blockMapPrefix,
 	}
 
 	// Now replay all the journal files we can find.
@@ -299,6 +308,84 @@ func (b *BlubberBlockDirectory) ListHosts(void Empty, hosts *BlockHolderList) er
 
 	for host, _ = range b.blockHostMap {
 		hosts.HostPort = append(hosts.HostPort, host)
+	}
+
+	return nil
+}
+
+// Pick a number of hosts from the available list. This will try to pick
+// hosts which hold less keys than the others.
+func (b *BlubberBlockDirectory) GetFreeHosts(req FreeHostsRequest,
+	hosts *BlockHolderList) error {
+	var allhosts []string
+	var onehost string
+	var i int
+	var min int = -1
+
+	if b.doozerConn == nil {
+		var host string
+		for host, _ = range b.blockHostMap {
+			allhosts = append(allhosts, host)
+		}
+	} else {
+		var names []string
+		var name string
+		var rev int64
+		var err error
+
+		rev, err = b.doozerConn.Rev()
+		if err != nil {
+			return err
+		}
+
+		// TODO(caoimhe): reading until the end may return MANY records.
+		names, err = b.doozerConn.Getdir(b.blockServicePrefix, rev, 0, -1)
+		if err != nil {
+			return err
+		}
+
+		for _, name = range names {
+			var data []byte
+			data, _, err = b.doozerConn.Get(b.blockServicePrefix+"/"+name, &rev)
+			if err == nil {
+				allhosts = append(allhosts, string(data))
+			} else {
+				log.Print("Unable to retrieve version ", rev, " of ",
+					b.blockServicePrefix, "/", name, ": ", err)
+			}
+		}
+	}
+
+	for i = 0; int32(i) < req.GetNumHosts(); i++ {
+		var ok bool
+		if i >= len(allhosts) {
+			break
+		}
+
+		hosts.HostPort = append(hosts.HostPort, allhosts[i])
+		_, ok = b.blockHostMap[allhosts[i]]
+		if !ok {
+			min = 0
+		} else if min < 1 || len(b.blockHostMap[allhosts[i]]) < min {
+			min = len(b.blockHostMap[allhosts[i]])
+		}
+	}
+
+	for i, onehost = range allhosts {
+		var ok bool
+
+		if int32(i) < req.GetNumHosts() {
+			continue
+		}
+
+		_, ok = b.blockHostMap[onehost]
+		if !ok {
+			hosts.HostPort = append(hosts.HostPort[1:], onehost)
+			min = 0
+		} else if len(b.blockHostMap[onehost]) <= min {
+			hosts.HostPort = append(hosts.HostPort[1:], onehost)
+			min = len(b.blockHostMap[onehost])
+		}
 	}
 
 	return nil

@@ -46,12 +46,15 @@ import (
 	"ancient-solutions.com/doozer/exportedservice"
 	"github.com/caoimhechaos/blubberstore"
 	"github.com/caoimhechaos/go-urlconnection"
+	"github.com/ha/doozer"
 )
 
 func main() {
 	var config *tls.Config = new(tls.Config)
 	var srv *blubberstore.BlubberBlockDirectory
 	var l net.Listener
+	var doozer_client *doozer.Conn
+	var blockservice_prefix string
 	var doozer_uri, doozer_buri string
 	var cert, key, cacert string
 	var service_name string
@@ -77,6 +80,10 @@ func main() {
 	flag.StringVar(&cacert, "cacert", "", "Path to the X.509 CA certificate.")
 	flag.BoolVar(&insecure, "insecure", false,
 		"Disable the use of client certificates (for development/debugging).")
+
+	flag.StringVar(&blockservice_prefix, "blockservice-prefix",
+		"/ns/service/blubber-service",
+		"Prefix of the list of active block servers in Doozer.")
 	flag.Parse()
 
 	if len(data_dir) == 0 {
@@ -117,9 +124,12 @@ func main() {
 
 	if len(doozer_uri) > 0 {
 		err = urlconnection.SetupDoozer(doozer_buri, doozer_uri)
+
+		doozer_client, err = doozer.DialUri(doozer_uri, doozer_buri)
 		if err != nil {
 			log.Fatal("Error setting up Doozer: ", err)
 		}
+		urlconnection.UseExistingDoozer(doozer_client)
 	}
 
 	if insecure && len(doozer_uri) > 0 {
@@ -155,8 +165,8 @@ func main() {
 
 	rpc.HandleHTTP()
 
-	srv, err = blubberstore.NewBlubberBlockDirectory(data_dir+"/journal-",
-		data_dir+"/blockmap")
+	srv, err = blubberstore.NewBlubberBlockDirectory(doozer_client,
+		blockservice_prefix, data_dir+"/journal-", data_dir+"/blockmap")
 	if err != nil {
 		log.Fatal("Failed to set up BlubberBlockDirectory: ", err)
 	}

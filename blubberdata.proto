@@ -115,6 +115,12 @@ message BlockHolderList {
 	repeated string host_port = 1;
 }
 
+// Data structure requesting a list of free hosts.
+message FreeHostsRequest {
+	// The required number of hosts.
+	required int32 num_hosts = 1;
+}
+
 // The main Blubber Store RPC service.
 service BlubberService {
 	// Store the blubber black passed in under the given block ID.
@@ -152,4 +158,8 @@ service BlubberBlockDirectory {
 	// Get a list of all hosts known to own blocks. This is mostly used by
 	// the cleanup jobs.
 	rpc ListHosts (Empty) returns (BlockHolderList);
+
+	// Pick a number of hosts from the available list. This will try to
+	// pick hosts which hold less keys than the others.
+	rpc GetFreeHosts (FreeHostsRequest) returns (BlockHolderList);
 }

@@ -277,7 +277,7 @@ useful e.g. if a host goes down or data is lost on it.
 */
 func (b *BlubberDirectoryClient) ExpireHost(hosts BlockHolderList) error {
 	var rv BlockHolderList
-	return b.client.Call("BlubberDirectoryClient.ExpireHost", hosts, &rv)
+	return b.client.Call("BlubberBlockDirectory.ExpireHost", hosts, &rv)
 }
 
 /*
@@ -288,6 +288,17 @@ func (b *BlubberDirectoryClient) ListHosts() (
 	hosts *BlockHolderList, err error) {
 	var mt Empty
 	hosts = new(BlockHolderList)
-	err = b.client.Call("BlubberDirectoryClient.ListHosts", mt, &hosts)
+	err = b.client.Call("BlubberBlockDirectory.ListHosts", mt, &hosts)
+	return
+}
+
+/*
+Pick a number of hosts from the available list. This will try to
+pick hosts which hold less keys than the others.
+*/
+func (b *BlubberDirectoryClient) GetFreeHosts(freeHostReq FreeHostsRequest) (
+	servers *BlockHolderList, err error) {
+	servers = new(BlockHolderList)
+	err = b.client.Call("BlubberBlockDirectory.GetFreeHosts", freeHostReq, servers)
 	return
 }
