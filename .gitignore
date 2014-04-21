@@ -30,3 +30,4 @@ _testmain.go
 blockdirectory/blockdirectory
 blubber-service/blubber-service
 copy-cli/copy-cli
+getfreehosts-cli/getfreehosts-cli
