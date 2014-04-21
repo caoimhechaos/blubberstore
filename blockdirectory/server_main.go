@@ -53,6 +53,7 @@ func main() {
 	var l net.Listener
 	var doozer_uri, doozer_buri string
 	var cert, key, cacert string
+	var service_name string
 	var data_dir string
 	var bind string
 	var insecure bool
@@ -67,6 +68,8 @@ func main() {
 		"Boot URI of the Doozer lock service.")
 	flag.StringVar(&bind, "bind", "[::]:0",
 		"host:port pair or host name to bind to.")
+	flag.StringVar(&service_name, "service-name", "blubber-directory",
+		"Name of the service to export to Doozer.")
 
 	flag.StringVar(&cert, "cert", "", "Path to the X.509 certificate.")
 	flag.StringVar(&key, "key", "", "Path to the X.509 private key.")
@@ -120,7 +123,7 @@ func main() {
 			log.Fatal("Error creating port exporter: ", err)
 		}
 
-		l, err = exporter.NewExportedPort("tcp", bind, "blubber-service")
+		l, err = exporter.NewExportedPort("tcp", bind, service_name)
 	} else if insecure {
 		l, err = net.Listen("tcp", bind)
 	} else if len(doozer_uri) > 0 {
@@ -132,7 +135,7 @@ func main() {
 			log.Fatal("Error creating port exporter: ", err)
 		}
 		l, err = exporter.NewExportedTLSPort(
-			"tcp", bind, "blubber-service", config)
+			"tcp", bind, service_name, config)
 	} else {
 		l, err = tls.Listen("tcp", bind, config)
 	}
