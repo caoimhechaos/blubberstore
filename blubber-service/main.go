@@ -46,6 +46,7 @@ import (
 
 	"ancient-solutions.com/doozer/exportedservice"
 	"github.com/caoimhechaos/blubberstore"
+	"github.com/caoimhechaos/go-urlconnection"
 )
 
 func main() {
@@ -119,6 +120,13 @@ func main() {
 
 		// Configure client side encryption.
 		config.RootCAs = config.ClientCAs
+	}
+
+	if len(doozer_uri) > 0 {
+		err = urlconnection.SetupDoozer(doozer_buri, doozer_uri)
+		if err != nil {
+			log.Fatal("Error setting up Doozer: ", err)
+		}
 	}
 
 	if insecure && len(doozer_uri) > 0 {
