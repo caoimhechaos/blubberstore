@@ -33,6 +33,7 @@
 package blubberstore
 
 import (
+	"bytes"
 	"errors"
 	"io"
 
@@ -239,4 +240,45 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	}
 
 	return nil
+}
+
+/*
+Read the blob with the given ID.
+*/
+func (b *BlubberStoreClient) RetrieveBlob(id []byte) (io.Reader, error) {
+	var holders *blubberstore.BlockHolderList
+	var bid blubberstore.BlockId
+	var server string
+	var err error
+
+	bid.BlockId = make([]byte, len(id))
+	copy(bid.BlockId, id)
+	holders, err = b.directoryClient.LookupBlob(bid)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, server = range holders.HostPort {
+		var client *blubberstore.BlubberRPCClient
+		var bwd blubberstore.BlockWithData
+
+		// TODO(caoimhe): use the HTTP interface so we can handle large
+		// blobs.
+		client, err = blubberstore.NewBlubberRPCClient(
+			"tcp://"+server, b.cert, b.key, b.cacert, b.insecure)
+		if err != nil {
+			b.errorLog <- err
+			continue
+		}
+
+		bwd, err = client.RetrieveBlob(bid)
+		if err != nil {
+			b.errorLog <- err
+			continue
+		}
+
+		return bytes.NewReader(bwd.GetBlockData()), nil
+	}
+
+	return nil, Err_NoHostsReached
 }
