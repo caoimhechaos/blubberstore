@@ -27,7 +27,7 @@ _testmain.go
 *.exe
 *.blockmap
 
-blockdirectory/blockdirectory
-blubber-service/blubber-service
-copy-cli/copy-cli
-getfreehosts-cli/getfreehosts-cli
+cmd/blubber-blockdirectory/blubber-blockdirectory
+cmd/blubber-service/blubber-service
+cmd/blubber-copy/blubber-copy
+cmd/blubber-getfreehosts/blubber-getfreehosts
