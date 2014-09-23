@@ -38,7 +38,6 @@ import (
 	"io"
 
 	"code.google.com/p/goprotobuf/proto"
-	"github.com/caoimhechaos/blubberstore"
 )
 
 // A number of hosts have been contacted but storing the block
@@ -59,7 +58,7 @@ var Err_IncompleteWrite = errors.New("Write did not complete to a sufficiently l
 // BlubberStore client which handles replication, quorums and server
 // lookups transparently.
 type BlubberStoreClient struct {
-	directoryClient   *blubberstore.BlubberDirectoryClient
+	directoryClient   *BlubberDirectoryClient
 	cert, key, cacert string
 	insecure          bool
 	errorLog          chan error
@@ -73,18 +72,18 @@ overwrite=false will disable lookups for current block holders.
 */
 func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	overwrite bool, replication int) error {
-	var client *blubberstore.BlubberRPCClient
-	var block blubberstore.BlockWithData
-	var br blubberstore.BlockReport
-	var bs blubberstore.BlockSource
+	var client *BlubberRPCClient
+	var block BlockWithData
+	var br BlockReport
+	var bs BlockSource
 	var attempt int
 	var servers []string
 	var server string
 	var err error
 
 	if overwrite {
-		var bid blubberstore.BlockId
-		var list *blubberstore.BlockHolderList
+		var bid BlockId
+		var list *BlockHolderList
 
 		bid.BlockId = make([]byte, len(id))
 		copy(bid.BlockId, id)
@@ -99,8 +98,8 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	}
 
 	if len(servers) < replication {
-		var freeHostReq blubberstore.FreeHostsRequest
-		var list *blubberstore.BlockHolderList
+		var freeHostReq FreeHostsRequest
+		var list *BlockHolderList
 
 		freeHostReq.NumHosts = proto.Int32(int32(replication - len(servers)))
 		list, err = b.directoryClient.GetFreeHosts(freeHostReq)
@@ -117,7 +116,7 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	block.BlockId = make([]byte, len(id))
 	copy(block.BlockId, id)
 	block.Overwrite = proto.Bool(overwrite)
-	br.Status = new(blubberstore.BlubberStat)
+	br.Status = new(BlubberStat)
 	br.Status.BlockId = make([]byte, len(id))
 	copy(br.Status.BlockId, id)
 	br.Server = make([]string, 0)
@@ -129,7 +128,7 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	// TODO(caoimhe): write this to be asynchronous and get the result from
 	// a channel.
 	for _, server = range servers {
-		client, err = blubberstore.NewBlubberRPCClient(
+		client, err = NewBlubberRPCClient(
 			"tcp://"+server, b.cert, b.key, b.cacert, b.insecure)
 		if err != nil {
 			b.errorLog <- err
@@ -152,9 +151,9 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	// Determine the relevant blob stats of what we've written
 	// so far.
 	for _, server = range br.Server {
-		var bid blubberstore.BlockId
-		var stat blubberstore.BlubberStat
-		client, err = blubberstore.NewBlubberRPCClient(
+		var bid BlockId
+		var stat BlubberStat
+		client, err = NewBlubberRPCClient(
 			server, b.cert, b.key, b.cacert, b.insecure)
 		if err != nil {
 			b.errorLog <- err
@@ -185,8 +184,8 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 
 	// Try to copy from the existing set to a bunch of other hosts.
 	for len(br.Server) < replication && attempt < replication {
-		var freeHostReq blubberstore.FreeHostsRequest
-		var list *blubberstore.BlockHolderList
+		var freeHostReq FreeHostsRequest
+		var list *BlockHolderList
 		var sid = attempt % len(br.Server)
 
 		// Try twice as many servers as we had left, since we may just get
@@ -210,7 +209,7 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 		// TODO(caoimhe): write this to be asynchronous and get the result
 		// from a channel.
 		for _, server = range servers {
-			client, err = blubberstore.NewBlubberRPCClient(
+			client, err = NewBlubberRPCClient(
 				"tcp://"+server, b.cert, b.key, b.cacert, b.insecure)
 			if err != nil {
 				b.errorLog <- err
@@ -246,8 +245,8 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 Read the blob with the given ID.
 */
 func (b *BlubberStoreClient) RetrieveBlob(id []byte) (io.Reader, error) {
-	var holders *blubberstore.BlockHolderList
-	var bid blubberstore.BlockId
+	var holders *BlockHolderList
+	var bid BlockId
 	var server string
 	var err error
 
@@ -259,12 +258,12 @@ func (b *BlubberStoreClient) RetrieveBlob(id []byte) (io.Reader, error) {
 	}
 
 	for _, server = range holders.HostPort {
-		var client *blubberstore.BlubberRPCClient
-		var bwd blubberstore.BlockWithData
+		var client *BlubberRPCClient
+		var bwd BlockWithData
 
 		// TODO(caoimhe): use the HTTP interface so we can handle large
 		// blobs.
-		client, err = blubberstore.NewBlubberRPCClient(
+		client, err = NewBlubberRPCClient(
 			"tcp://"+server, b.cert, b.key, b.cacert, b.insecure)
 		if err != nil {
 			b.errorLog <- err
