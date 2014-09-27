@@ -65,6 +65,40 @@ type BlubberStoreClient struct {
 }
 
 /*
+Create a new Blubber Store client which will talk independently to
+the directory service, discover and talk to blubber backends, and
+handle timeouts etc.
+
+uri is an URI pointing to the blubber directory.
+cert and key are the path to a PEM encoded X.509 certificate and
+private key.
+cacert is the path to a PEM encoded X.509 CA certificate.
+Setting insecure to true disables the use of certificates.
+errlog is a channel for reporting non-fatal errors which occur during
+operation back to the clients.
+*/
+func NewBlubberStoreClient(uri, cert, key, cacert string,
+	insecure bool, errorlog chan error) (*BlubberStoreClient, error) {
+	var dirclient *BlubberDirectoryClient
+	var err error
+
+	dirclient, err = NewBlubberDirectoryClient(
+		uri, cert, key, cacert, insecure)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BlubberStoreClient{
+		directoryclient: dirclient,
+		cert:            cert,
+		key:             key,
+		cacert:          cacert,
+		insecure:        insecure,
+		errorLog:        errorlog,
+	}
+}
+
+/*
 Write the given data to a blob with the given ID, overwriting it if
 specified. This will ensure that there are more than replication/2
 copies of the block.
