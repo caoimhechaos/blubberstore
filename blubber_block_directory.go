@@ -149,7 +149,7 @@ func NewBlubberBlockDirectory(
 
 			reader = serialdata.NewSerialDataReader(journal)
 			for err = reader.ReadMessage(&br); err == nil; err = reader.ReadMessage(&br) {
-				ret.ApplyBlockReport(&br)
+				ret.applyBlockReport(&br)
 			}
 			journal.Close()
 		}
@@ -173,7 +173,7 @@ func (b *BlubberBlockDirectory) periodicallyWriteStateDump() {
 
 // Apply a single BlockReport to the internal state without writing it to
 // the journal. This is useful e.g. for replaying the journal.
-func (b *BlubberBlockDirectory) ApplyBlockReport(status *BlockReport) {
+func (b *BlubberBlockDirectory) applyBlockReport(status *BlockReport) {
 	var host string
 
 	// Register the updated block for all reported servers.
@@ -216,7 +216,7 @@ func (b *BlubberBlockDirectory) ReportBlob(status BlockReport, res *BlockId) err
 	}
 
 	// Now apply the report to the internal state.
-	b.ApplyBlockReport(&status)
+	b.applyBlockReport(&status)
 
 	return nil
 }
