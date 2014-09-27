@@ -214,6 +214,7 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader,
 
 	// Now, report the new blob to the directory service.
 	report.Server = append(report.Server, self.bindHostPort)
+	report.Status = new(blubberstore.BlubberStat)
 	report.Status.BlockId = make([]byte, len(blobId))
 	report.Status.Checksum = make([]byte, len(bh.Checksum))
 	report.Status.Size = bh.Size
