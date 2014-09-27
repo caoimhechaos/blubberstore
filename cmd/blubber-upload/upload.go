@@ -38,12 +38,14 @@ import (
 	"os"
 
 	"github.com/caoimhechaos/blubberstore"
+	"github.com/caoimhechaos/go-urlconnection"
 )
 
 func main() {
 	var client *blubberstore.BlubberStoreClient
 	var uri, cert, key, cacert, path, id string
 	var errlog chan error = make(chan error)
+	var doozer_uri, doozer_buri string
 	var insecure, overwrite bool
 	var replication int
 	var file *os.File
@@ -65,7 +67,19 @@ func main() {
 	flag.StringVar(&cacert, "cacert", "", "Path to the X.509 CA certificate.")
 	flag.BoolVar(&insecure, "insecure", false,
 		"Disable the use of client certificates (for development/debugging).")
+
+	flag.StringVar(&doozer_uri, "doozer-uri", os.Getenv("DOOZER_URI"),
+		"URI of the Doozer lock service.")
+	flag.StringVar(&doozer_buri, "doozer-boot-uri",
+		os.Getenv("DOOZER_BOOT_URI"), "Boot URI of the Doozer lock service.")
 	flag.Parse()
+
+	if doozer_uri != "" {
+		err = urlconnection.SetupDoozer(doozer_buri, doozer_uri)
+		if err != nil {
+			log.Print("Error setting up Doozer connection: ", err)
+		}
+	}
 
 	if id == "" {
 		id = path
