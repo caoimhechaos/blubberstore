@@ -28,6 +28,7 @@ _testmain.go
 *.blockmap
 
 cmd/blubber-blockdirectory/blubber-blockdirectory
-cmd/blubber-service/blubber-service
 cmd/blubber-copy/blubber-copy
 cmd/blubber-getfreehosts/blubber-getfreehosts
+cmd/blubber-service/blubber-service
+cmd/blubber-upload/blubber-upload
