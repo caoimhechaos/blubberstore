@@ -108,7 +108,7 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	overwrite bool, replication int) error {
 	var client *BlubberRPCClient
 	var block BlockWithData
-	var br BlockReport
+	var serverlist []string
 	var bs BlockSource
 	var attempt int
 	var servers []string
@@ -149,11 +149,8 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	// TODO(caoimhe): use the HTTP interface so we can handle large blobs.
 	block.BlockId = make([]byte, len(id))
 	copy(block.BlockId, id)
-	block.Overwrite = proto.Bool(overwrite)
-	br.Status = new(BlubberStat)
-	br.Status.BlockId = make([]byte, len(id))
-	copy(br.Status.BlockId, id)
-	br.Server = make([]string, 0)
+	serverlist = make([]string, 0)
+
 	_, err = io.ReadFull(data, block.BlockData)
 	if err != nil {
 		return err
@@ -175,57 +172,23 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 			continue
 		}
 
-		br.Server = append(br.Server, server)
+		serverlist = append(serverlist, server)
 	}
 
-	if len(br.Server) == 0 {
+	if len(serverlist) == 0 {
 		return Err_NoHostsReached
 	}
 
-	// Determine the relevant blob stats of what we've written
-	// so far.
-	for _, server = range br.Server {
-		var bid BlockId
-		var stat BlubberStat
-		client, err = NewBlubberRPCClient(
-			server, b.cert, b.key, b.cacert, b.insecure)
-		if err != nil {
-			b.errorLog <- err
-			continue
-		}
-
-		bid.BlockId = make([]byte, len(id))
-		copy(bid.BlockId, id)
-		stat, err = client.StatBlob(bid)
-		if err != nil {
-			b.errorLog <- err
-			continue
-		}
-
-		br.Status = &stat
-	}
-
-	if br.Status != nil {
-		// Perhaps not the best error code for this?
-		return Err_NoQuorumReached
-	}
-
-	// First, report our success so far.
-	err = b.directoryClient.ReportBlob(br)
-	if err != nil {
-		b.errorLog <- err
-	}
-
 	// Try to copy from the existing set to a bunch of other hosts.
-	for len(br.Server) < replication && attempt < replication {
+	for len(serverlist) < replication && attempt < replication {
 		var freeHostReq FreeHostsRequest
 		var list *BlockHolderList
-		var sid = attempt % len(br.Server)
+		var sid = attempt % len(serverlist)
 
 		// Try twice as many servers as we had left, since we may just get
 		// the ones back which we tried before.
 		freeHostReq.NumHosts = proto.Int32(int32(
-			2 * (replication - len(br.Server))))
+			2 * (replication - len(serverlist))))
 		list, err = b.directoryClient.GetFreeHosts(freeHostReq)
 		if err != nil {
 			return err
@@ -250,25 +213,25 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 				continue
 			}
 
-			bs.SourceHost = proto.String(br.Server[sid])
+			bs.SourceHost = proto.String(serverlist[sid])
 			err = client.CopyBlob(bs)
 			if err != nil {
 				b.errorLog <- err
 				continue
 			}
 
-			br.Server = append(br.Server, server)
+			serverlist = append(serverlist, server)
 		}
 
 		attempt += 1
 	}
 
 	// We give up (or we're done).
-	if len(br.Server) < (replication / 2) {
+	if len(serverlist) < (replication / 2) {
 		return Err_NoQuorumReached
 	}
 
-	if len(br.Server) < replication {
+	if len(serverlist) < replication {
 		return Err_IncompleteWrite
 	}
 
