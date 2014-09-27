@@ -89,13 +89,13 @@ func NewBlubberStoreClient(uri, cert, key, cacert string,
 	}
 
 	return &BlubberStoreClient{
-		directoryclient: dirclient,
+		directoryClient: dirclient,
 		cert:            cert,
 		key:             key,
 		cacert:          cacert,
 		insecure:        insecure,
 		errorLog:        errorlog,
-	}
+	}, nil
 }
 
 /*
