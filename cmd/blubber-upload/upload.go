@@ -41,6 +41,19 @@ import (
 	"github.com/caoimhechaos/go-urlconnection"
 )
 
+var shutdown bool
+
+func logger(errlog chan error) {
+	var err error
+
+	for !shutdown {
+		err = <-errlog
+		if err != nil {
+			log.Print("error: ", err)
+		}
+	}
+}
+
 func main() {
 	var client *blubberstore.BlubberStoreClient
 	var uri, cert, key, cacert, path, id string
@@ -85,6 +98,8 @@ func main() {
 		id = path
 	}
 
+	go logger(errlog)
+
 	client, err = blubberstore.NewBlubberStoreClient(
 		uri, cert, key, cacert, insecure, errlog)
 	if err != nil {
@@ -105,4 +120,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error closing ", path, ": ", err)
 	}
+
+	shutdown = true
+	errlog <- nil // Poke the logger to ensure we exit quickly.
 }
