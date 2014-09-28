@@ -217,8 +217,8 @@ func (self *blubberStore) StoreBlob(blobId []byte, input io.Reader,
 	report.Status = new(blubberstore.BlubberStat)
 	report.Status.BlockId = make([]byte, len(blobId))
 	report.Status.Checksum = make([]byte, len(bh.Checksum))
-	report.Status.Size = bh.Size
-	report.Status.Timestamp = bh.Timestamp
+	report.Status.Size = proto.Uint64(*bh.Size)
+	report.Status.Timestamp = proto.Uint64(*bh.Timestamp)
 
 	copy(report.Status.BlockId, blobId)
 	copy(report.Status.Checksum, bh.Checksum)
