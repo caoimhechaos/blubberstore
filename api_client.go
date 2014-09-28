@@ -36,6 +36,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
 
 	"code.google.com/p/goprotobuf/proto"
 )
@@ -151,9 +152,13 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 	copy(block.BlockId, id)
 	serverlist = make([]string, 0)
 
-	_, err = io.ReadFull(data, block.BlockData)
+	block.BlockData, err = ioutil.ReadAll(data)
 	if err != nil {
 		return err
+	}
+
+	if len(block.BlockData) == 0 {
+		return errors.New("Zero-length input was detected")
 	}
 
 	// TODO(caoimhe): write this to be asynchronous and get the result from
