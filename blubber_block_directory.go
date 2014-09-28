@@ -70,6 +70,7 @@ func NewBlubberBlockDirectory(
 	var now time.Time = time.Now()
 	var newpath string = journalPrefix + now.Format("2006-01-02.150405")
 	var blockMap map[string]map[string]*ServerBlockStatus = make(map[string]map[string]*ServerBlockStatus)
+	var blockHostMap map[string][]string = make(map[string][]string)
 	var parentDir *os.File
 	var stateDumpFile, newJournal *os.File
 	var reader *serialdata.SerialDataReader
@@ -102,6 +103,8 @@ func NewBlubberBlockDirectory(
 
 		for _, srv = range bs.Servers {
 			blockMap[blockId][srv.GetHostPort()] = srv
+			blockHostMap[srv.GetHostPort()] = append(
+				blockHostMap[srv.GetHostPort()], blockId)
 		}
 
 		bs.Reset()
@@ -119,6 +122,7 @@ func NewBlubberBlockDirectory(
 		journalPrefix:      journalPrefix,
 		doozerConn:         doozerClient,
 		blockServicePrefix: blockServicePrefix,
+		blockHostMap:       blockHostMap,
 		blockMap:           blockMap,
 		blockMapMtx:        new(sync.RWMutex),
 		blockMapPrefix:     blockMapPrefix,
