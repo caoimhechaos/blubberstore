@@ -30,6 +30,11 @@
  */
 
 // Client library for blubberstore end users.
+//
+// By design, you will most likely want to use the BlubberStoreClient
+// class, which is part of this package and makes use of all the other
+// packages to seamlessly provide access to blobs stored on remote hosts
+// which are looked up for you in the blob directory.
 package blubberstore
 
 import (
@@ -244,7 +249,8 @@ func (b *BlubberStoreClient) StoreBlock(id []byte, data io.Reader,
 }
 
 /*
-Read the blob with the given ID.
+Read the blob with the given ID. The blob will be looked up for you in the
+block directory and a read request will be made to an appropriate server.
 */
 func (b *BlubberStoreClient) RetrieveBlob(id []byte) (io.Reader, error) {
 	var holders *BlockHolderList
@@ -259,6 +265,9 @@ func (b *BlubberStoreClient) RetrieveBlob(id []byte) (io.Reader, error) {
 		return nil, err
 	}
 
+	// TODO(caoimhe): Don't just go by random, choose the host which
+	// seems most reasonable (most frequent agreed-upon version / majority
+	// vote, distance vector, etc).
 	for _, server = range holders.HostPort {
 		var client *BlubberRPCClient
 		var bwd BlockWithData
