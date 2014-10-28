@@ -27,6 +27,7 @@ _testmain.go
 *.exe
 *.blockmap
 
+cmd/blubber-blockcat/blubber-blockcat
 cmd/blubber-blockdirectory/blubber-blockdirectory
 cmd/blubber-blockstat/blubber-blockstat
 cmd/blubber-copy/blubber-copy
