@@ -292,3 +292,65 @@ func (b *BlubberStoreClient) RetrieveBlob(id []byte) (io.Reader, error) {
 
 	return nil, Err_NoHostsReached
 }
+
+/*
+Gather information about the status of the blob with the given ID.
+Returns an object representing the status of the requested blob or an error
+which may have occurred when trying to gather the requested information.
+*/
+func (b *BlubberStoreClient) StatBlob(id []byte) (*BlockStatus, error) {
+	var status *BlockStatus = new(BlockStatus)
+	var bid BlockId
+	var holders *BlockHolderList
+	var successes int
+	var server string
+	var err error
+
+	bid.BlockId = make([]byte, len(id))
+	status.BlockId = make([]byte, len(id))
+	copy(bid.BlockId, id)
+	copy(status.BlockId, id)
+	holders, err = b.directoryClient.LookupBlob(bid)
+	if err != nil {
+		return nil, err
+	}
+
+	status.ReplicationFactor = proto.Uint32(uint32(len(holders.HostPort)))
+
+	for _, server = range holders.HostPort {
+		var sbs *ServerBlockStatus = new(ServerBlockStatus)
+		var client *BlubberRPCClient
+		var stat BlubberStat
+
+		sbs.HostPort = proto.String(server)
+
+		client, err = NewBlubberRPCClient(
+			"tcp://"+server, b.cert, b.key, b.cacert, b.insecure)
+		if err != nil {
+			b.errorLog <- err
+			status.Servers = append(status.Servers, sbs)
+			continue
+		}
+
+		stat, err = client.StatBlob(bid)
+		if err != nil {
+			b.errorLog <- err
+			status.Servers = append(status.Servers, sbs)
+			continue
+		}
+
+		sbs.Checksum = make([]byte, len(stat.Checksum))
+		copy(sbs.Checksum, stat.Checksum)
+
+		sbs.Timestamp = proto.Uint64(stat.GetTimestamp())
+
+		status.Servers = append(status.Servers, sbs)
+		successes += 1
+	}
+
+	if successes == 0 {
+		return status, Err_NoHostsReached
+	}
+
+	return status, nil
+}
