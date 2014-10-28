@@ -29,7 +29,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package blubberstore
+package main
 
 import (
 	"errors"
@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"code.google.com/p/goprotobuf/proto"
+	"github.com/caoimhechaos/blubberstore"
 	"github.com/caoimhechaos/go-serialdata"
 	"github.com/ha/doozer"
 )
@@ -58,7 +59,7 @@ type BlubberBlockDirectory struct {
 
 	// Mapping of block IDs to hosts which contain them to block states.
 	blockHostMap   map[string][]string
-	blockMap       map[string]map[string]*ServerBlockStatus
+	blockMap       map[string]map[string]*blubberstore.ServerBlockStatus
 	blockMapMtx    *sync.RWMutex
 	blockMapPrefix string
 }
@@ -69,7 +70,7 @@ func NewBlubberBlockDirectory(
 	*BlubberBlockDirectory, error) {
 	var now time.Time = time.Now()
 	var newpath string = journalPrefix + now.Format("2006-01-02.150405")
-	var blockMap map[string]map[string]*ServerBlockStatus = make(map[string]map[string]*ServerBlockStatus)
+	var blockMap map[string]map[string]*blubberstore.ServerBlockStatus = make(map[string]map[string]*blubberstore.ServerBlockStatus)
 	var blockHostMap map[string][]string = make(map[string][]string)
 	var parentDir *os.File
 	var stateDumpFile, newJournal *os.File
@@ -77,7 +78,7 @@ func NewBlubberBlockDirectory(
 	var ret *BlubberBlockDirectory
 	var names []string
 	var name string
-	var bs BlockStatus
+	var bs blubberstore.BlockStatus
 	var err error
 
 	// Try to find the latest complete block map.
@@ -97,9 +98,10 @@ func NewBlubberBlockDirectory(
 
 	for err = reader.ReadMessage(&bs); err == nil; err = reader.ReadMessage(&bs) {
 		var blockId string = string(bs.GetBlockId())
-		var srv *ServerBlockStatus
+		var srv *blubberstore.ServerBlockStatus
 
-		blockMap[blockId] = make(map[string]*ServerBlockStatus)
+		blockMap[blockId] = make(
+			map[string]*blubberstore.ServerBlockStatus)
 
 		for _, srv = range bs.Servers {
 			blockMap[blockId][srv.GetHostPort()] = srv
@@ -144,7 +146,7 @@ func NewBlubberBlockDirectory(
 	for _, name = range names {
 		if strings.HasPrefix(name, path.Base(journalPrefix)) {
 			var journal *os.File
-			var br BlockReport
+			var br blubberstore.BlockReport
 
 			journal, err = os.Open(parentDir.Name() + "/" + name)
 			if err != nil {
@@ -177,7 +179,8 @@ func (b *BlubberBlockDirectory) periodicallyWriteStateDump() {
 
 // Apply a single BlockReport to the internal state without writing it to
 // the journal. This is useful e.g. for replaying the journal.
-func (b *BlubberBlockDirectory) applyBlockReport(status *BlockReport) {
+func (b *BlubberBlockDirectory) applyBlockReport(
+	status *blubberstore.BlockReport) {
 	var host string
 
 	// Register the updated block for all reported servers.
@@ -186,7 +189,7 @@ func (b *BlubberBlockDirectory) applyBlockReport(status *BlockReport) {
 
 	for _, host = range status.Server {
 		// Create a new ServerBlockStatus record with the information we have.
-		var sbs *ServerBlockStatus = &ServerBlockStatus{
+		var sbs *blubberstore.ServerBlockStatus = &blubberstore.ServerBlockStatus{
 			HostPort:  proto.String(host),
 			Checksum:  make([]byte, len(status.Status.Checksum)),
 			Timestamp: proto.Uint64(status.Status.GetTimestamp()),
@@ -196,8 +199,8 @@ func (b *BlubberBlockDirectory) applyBlockReport(status *BlockReport) {
 
 		_, ok = b.blockMap[string(status.Status.BlockId)]
 		if !ok {
-			b.blockMap[string(status.Status.BlockId)] =
-				make(map[string]*ServerBlockStatus)
+			b.blockMap[string(status.Status.BlockId)] = make(
+				map[string]*blubberstore.ServerBlockStatus)
 		}
 		b.blockMap[string(status.Status.BlockId)][host] = sbs
 		b.blockHostMap[host] = append(b.blockHostMap[host],
@@ -207,7 +210,8 @@ func (b *BlubberBlockDirectory) applyBlockReport(status *BlockReport) {
 
 // Report to the directory that the block with the given properties is now
 // stored on the specified server.
-func (b *BlubberBlockDirectory) ReportBlob(status BlockReport, res *BlockId) error {
+func (b *BlubberBlockDirectory) ReportBlob(status blubberstore.BlockReport,
+	res *blubberstore.BlockId) error {
 	var err error
 
 	res.BlockId = make([]byte, len(status.Status.BlockId))
@@ -227,7 +231,7 @@ func (b *BlubberBlockDirectory) ReportBlob(status BlockReport, res *BlockId) err
 
 // Look up the block with the given ID.
 func (b *BlubberBlockDirectory) LookupBlob(
-	req BlockId, res *BlockHolderList) error {
+	req blubberstore.BlockId, res *blubberstore.BlockHolderList) error {
 	var host string
 	var ok bool
 
@@ -267,8 +271,9 @@ func (b *BlubberBlockDirectory) removeBlobHolder(blobId []byte,
 }
 
 // Remove the given host from the holders of the blob.
-func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockRemovalReport,
-	res *BlockId) error {
+func (b *BlubberBlockDirectory) RemoveBlobHolder(
+	report blubberstore.BlockRemovalReport,
+	res *blubberstore.BlockId) error {
 	var server string
 	b.blockMapMtx.Lock()
 	defer b.blockMapMtx.Unlock()
@@ -285,8 +290,8 @@ func (b *BlubberBlockDirectory) RemoveBlobHolder(report BlockRemovalReport,
 
 // Delete all block ownerships associated with the given host. This is very
 // useful e.g. if a host goes down or data is lost on it.
-func (b *BlubberBlockDirectory) ExpireHost(hosts BlockHolderList,
-	ret *BlockHolderList) error {
+func (b *BlubberBlockDirectory) ExpireHost(hosts blubberstore.BlockHolderList,
+	ret *blubberstore.BlockHolderList) error {
 	var host string
 
 	b.blockMapMtx.Lock()
@@ -305,7 +310,8 @@ func (b *BlubberBlockDirectory) ExpireHost(hosts BlockHolderList,
 
 // Get a list of all hosts known to own blocks. This is mostly used by the
 // cleanup jobs.
-func (b *BlubberBlockDirectory) ListHosts(void Empty, hosts *BlockHolderList) error {
+func (b *BlubberBlockDirectory) ListHosts(
+	void blubberstore.Empty, hosts *blubberstore.BlockHolderList) error {
 	var host string
 	b.blockMapMtx.RLock()
 	defer b.blockMapMtx.RUnlock()
@@ -319,8 +325,8 @@ func (b *BlubberBlockDirectory) ListHosts(void Empty, hosts *BlockHolderList) er
 
 // Pick a number of hosts from the available list. This will try to pick
 // hosts which hold less keys than the others.
-func (b *BlubberBlockDirectory) GetFreeHosts(req FreeHostsRequest,
-	hosts *BlockHolderList) error {
+func (b *BlubberBlockDirectory) GetFreeHosts(req blubberstore.FreeHostsRequest,
+	hosts *blubberstore.BlockHolderList) error {
 	var allhosts []string
 	var onehost string
 	var i int
@@ -404,7 +410,7 @@ func (b *BlubberBlockDirectory) dumpState() {
 	var newStateDumpFile *os.File
 	var stateDumpWriter *serialdata.SerialDataWriter
 	var blockId string
-	var serverMap map[string]*ServerBlockStatus
+	var serverMap map[string]*blubberstore.ServerBlockStatus
 	var err error
 
 	os.Remove(b.blockMapPrefix + ".new")
@@ -433,9 +439,9 @@ func (b *BlubberBlockDirectory) dumpState() {
 	b.blockMapMtx.RLock()
 	defer b.blockMapMtx.RUnlock()
 	for blockId, serverMap = range b.blockMap {
-		var bs BlockStatus
+		var bs blubberstore.BlockStatus
 		var host string
-		var srv *ServerBlockStatus
+		var srv *blubberstore.ServerBlockStatus
 
 		bs.BlockId = make([]byte, len([]byte(blockId)))
 		copy(bs.BlockId, []byte(blockId))

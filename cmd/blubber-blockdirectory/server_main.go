@@ -44,14 +44,13 @@ import (
 	"os"
 
 	"ancient-solutions.com/doozer/exportedservice"
-	"github.com/caoimhechaos/blubberstore"
 	"github.com/caoimhechaos/go-urlconnection"
 	"github.com/ha/doozer"
 )
 
 func main() {
 	var config *tls.Config = new(tls.Config)
-	var srv *blubberstore.BlubberBlockDirectory
+	var srv *BlubberBlockDirectory
 	var l net.Listener
 	var doozer_client *doozer.Conn
 	var blockservice_prefix string
@@ -165,7 +164,7 @@ func main() {
 
 	rpc.HandleHTTP()
 
-	srv, err = blubberstore.NewBlubberBlockDirectory(doozer_client,
+	srv, err = NewBlubberBlockDirectory(doozer_client,
 		blockservice_prefix, data_dir+"/journal-", data_dir+"/blockmap")
 	if err != nil {
 		log.Fatal("Failed to set up BlubberBlockDirectory: ", err)
