@@ -172,7 +172,7 @@ func main() {
 	rpc.HandleHTTP()
 
 	bs = &blubberStore{
-		bindHostPort:    bind,
+		bindHostPort:    l.Addr().String(),
 		blobPath:        blob_path,
 		directoryClient: directory_client,
 		insecure:        insecure,
