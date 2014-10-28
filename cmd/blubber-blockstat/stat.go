@@ -35,8 +35,10 @@ package main
 import (
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/caoimhechaos/blubberstore"
@@ -62,6 +64,7 @@ func main() {
 	var uri, cert, key, cacert, id string
 	var errlog chan error = make(chan error)
 	var doozer_uri, doozer_buri string
+	var maxlen int = 1
 	var insecure bool
 	var err error
 
@@ -106,18 +109,25 @@ func main() {
 		log.Fatal("Error retrieving blob stats: ", err)
 	}
 
-	log.Print("Blob ID: ", hex.EncodeToString(status.GetBlockId()), " (",
-		string(status.GetBlockId()), ")")
-	log.Print("Replication factor: ", status.GetReplicationFactor())
-	log.Print("")
+	fmt.Printf("Blob ID:           %20s (%s)\n",
+		hex.EncodeToString(status.GetBlockId()),
+		string(status.GetBlockId()))
+	fmt.Printf("Replication factor: %d\n\n", status.GetReplicationFactor())
+
+	for _, srv := range status.GetServers() {
+		if len(srv.GetHostPort()) > maxlen {
+			maxlen = len(srv.GetHostPort())
+		}
+	}
 
 	for _, srv := range status.GetServers() {
 		if len(srv.Checksum) > 0 && srv.Timestamp != nil {
 			var ts time.Time = time.Unix(int64(srv.GetTimestamp()), 0)
-			log.Print("    ", srv.GetHostPort(), ": checksum ",
-				hex.EncodeToString(srv.GetChecksum()), ", timestamp ", ts)
+			fmt.Printf("    %"+strconv.FormatInt(int64(maxlen), 10)+
+				"s: timestamp: %s, checksum %64s\n", srv.GetHostPort(),
+				ts.String(), hex.EncodeToString(srv.GetChecksum()))
 		} else {
-			log.Print("    ", srv.GetHostPort(), " (unreachable)")
+			fmt.Printf("    %s (unreachable)\n", srv.GetHostPort())
 		}
 	}
 
