@@ -58,20 +58,22 @@ type BlubberBlockDirectory struct {
 	blockServicePrefix string
 
 	// Mapping of block IDs to hosts which contain them to block states.
-	blockHostMap   map[string][]string
-	blockMap       map[string]map[string]*blubberstore.ServerBlockStatus
-	blockMapMtx    *sync.RWMutex
-	blockMapPrefix string
+	blockHostMap    map[string][]string
+	blockMap        map[string]map[string]*blubberstore.ServerBlockStatus
+	blockMapMtx     *sync.RWMutex
+	blockMapPrefix  string
+	blockMapVersion uint64
 }
 
 func NewBlubberBlockDirectory(
 	doozerClient *doozer.Conn,
 	blockServicePrefix, journalPrefix, blockMapPrefix string) (
-	*BlubberBlockDirectory, error) {
+	*BlubberBlockDirectory, *BlubberS2SProto, error) {
 	var now time.Time = time.Now()
 	var newpath string = journalPrefix + now.Format("2006-01-02.150405")
 	var blockMap map[string]map[string]*blubberstore.ServerBlockStatus = make(map[string]map[string]*blubberstore.ServerBlockStatus)
 	var blockHostMap map[string][]string = make(map[string][]string)
+	var blockMapMtx *sync.RWMutex
 	var parentDir *os.File
 	var stateDumpFile, newJournal *os.File
 	var reader *serialdata.SerialDataReader
@@ -90,7 +92,7 @@ func NewBlubberBlockDirectory(
 		log.Print("Warning: created new empty block map")
 		stateDumpFile, err = os.Create(blockMapPrefix + ".blockmap")
 	} else if err != nil {
-		return nil, errors.New("Unable to open block map: " + err.Error())
+		return nil, nil, errors.New("Unable to open block map: " + err.Error())
 	}
 
 	// Read all data from the state dump file.
@@ -114,9 +116,11 @@ func NewBlubberBlockDirectory(
 
 	newJournal, err = os.Create(newpath)
 	if err != nil {
-		return nil, errors.New("Error creating " + newpath + ": " +
+		return nil, nil, errors.New("Error creating " + newpath + ": " +
 			err.Error())
 	}
+
+	blockMapMtx = new(sync.RWMutex)
 
 	ret = &BlubberBlockDirectory{
 		currentJournal:     serialdata.NewSerialDataWriter(newJournal),
@@ -126,19 +130,19 @@ func NewBlubberBlockDirectory(
 		blockServicePrefix: blockServicePrefix,
 		blockHostMap:       blockHostMap,
 		blockMap:           blockMap,
-		blockMapMtx:        new(sync.RWMutex),
+		blockMapMtx:        blockMapMtx,
 		blockMapPrefix:     blockMapPrefix,
 	}
 
 	// Now replay all the journal files we can find.
 	parentDir, err = os.Open(path.Dir(journalPrefix))
 	if err != nil {
-		return nil, errors.New("Unable to open " + path.Dir(journalPrefix) +
+		return nil, nil, errors.New("Unable to open " + path.Dir(journalPrefix) +
 			": " + err.Error())
 	}
 	names, err = parentDir.Readdirnames(-1)
 	if err != nil {
-		return nil, errors.New("Unable to list " + path.Dir(journalPrefix) +
+		return nil, nil, errors.New("Unable to list " + path.Dir(journalPrefix) +
 			": " + err.Error())
 	}
 	parentDir.Close()
@@ -150,7 +154,7 @@ func NewBlubberBlockDirectory(
 
 			journal, err = os.Open(parentDir.Name() + "/" + name)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			reader = serialdata.NewSerialDataReader(journal)
@@ -164,7 +168,8 @@ func NewBlubberBlockDirectory(
 	// Start syncing the state dump to disk.
 	go ret.periodicallyWriteStateDump()
 
-	return ret, nil
+	return ret, NewBlubberS2SProto(
+		doozerClient, &blockMap, blockMapMtx), nil
 }
 
 // Write a complete state dump to disk regularly and remove the journals.
