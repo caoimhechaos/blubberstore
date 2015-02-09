@@ -32,6 +32,7 @@
 package main
 
 import (
+	"container/ring"
 	"errors"
 	"log"
 	"os"
@@ -63,11 +64,15 @@ type BlubberBlockDirectory struct {
 	blockMapMtx     *sync.RWMutex
 	blockMapPrefix  string
 	blockMapVersion uint64
+
+	// History of block updates, by version number.
+	blockMapUpdates *ring.Ring
 }
 
 func NewBlubberBlockDirectory(
 	doozerClient *doozer.Conn,
-	blockServicePrefix, journalPrefix, blockMapPrefix string) (
+	blockServicePrefix, journalPrefix, blockMapPrefix string,
+	numUpdatesToRetain int) (
 	*BlubberBlockDirectory, *BlubberS2SProto, error) {
 	var now time.Time = time.Now()
 	var newpath string = journalPrefix + now.Format("2006-01-02.150405")
@@ -81,6 +86,8 @@ func NewBlubberBlockDirectory(
 	var names []string
 	var name string
 	var bs blubberstore.BlockStatus
+	var bh blubberstore.BlockDirectoryHeader
+	var version uint64
 	var err error
 
 	// Try to find the latest complete block map.
@@ -97,6 +104,12 @@ func NewBlubberBlockDirectory(
 
 	// Read all data from the state dump file.
 	reader = serialdata.NewSerialDataReader(stateDumpFile)
+
+	if err = reader.ReadMessage(&bh); err != nil {
+		return nil, nil, errors.New("Unable to open block map: " + err.Error())
+	}
+
+	version = bh.GetRevision()
 
 	for err = reader.ReadMessage(&bs); err == nil; err = reader.ReadMessage(&bs) {
 		var blockId string = string(bs.GetBlockId())
@@ -132,6 +145,8 @@ func NewBlubberBlockDirectory(
 		blockMap:           blockMap,
 		blockMapMtx:        blockMapMtx,
 		blockMapPrefix:     blockMapPrefix,
+		blockMapVersion:    version,
+		blockMapUpdates:    ring.New(numUpdatesToRetain),
 	}
 
 	// Now replay all the journal files we can find.
@@ -414,6 +429,7 @@ func (b *BlubberBlockDirectory) dumpState() {
 	var newJournalFile *os.File
 	var newStateDumpFile *os.File
 	var stateDumpWriter *serialdata.SerialDataWriter
+	var stateDumpHeader *blubberstore.BlockDirectoryHeader
 	var blockId string
 	var serverMap map[string]*blubberstore.ServerBlockStatus
 	var err error
@@ -443,6 +459,11 @@ func (b *BlubberBlockDirectory) dumpState() {
 
 	b.blockMapMtx.RLock()
 	defer b.blockMapMtx.RUnlock()
+	stateDumpHeader = new(blubberstore.BlockDirectoryHeader)
+	stateDumpHeader.Revision = proto.Uint64(b.blockMapVersion)
+	stateDumpWriter.WriteMessage(stateDumpHeader)
+	stateDumpHeader = nil
+
 	for blockId, serverMap = range b.blockMap {
 		var bs blubberstore.BlockStatus
 		var host string

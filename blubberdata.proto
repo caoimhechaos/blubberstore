@@ -121,6 +121,12 @@ message FreeHostsRequest {
 	required int32 num_hosts = 1;
 }
 
+// Header prepended to the block directory state dump.
+message BlockDirectoryHeader {
+	// The revision number of the block directory at the point of the state dump.
+	required uint64 revision = 1;
+}
+
 // Data structure representing the entire contents of a block directory.
 message BlockDirectoryRevision {
 	// The revision number of the block directory.

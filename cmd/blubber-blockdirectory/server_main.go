@@ -57,6 +57,7 @@ func main() {
 	var blockservice_prefix string
 	var doozer_uri, doozer_buri string
 	var cert, key, cacert string
+	var revision_log_len int
 	var service_name string
 	var data_dir string
 	var bind string
@@ -84,6 +85,8 @@ func main() {
 	flag.StringVar(&blockservice_prefix, "blockservice-prefix",
 		"/ns/service/blubber-service",
 		"Prefix of the list of active block servers in Doozer.")
+	flag.IntVar(&revision_log_len, "revision-log-length", 10,
+		"Number of versions to store in the revision log")
 	flag.Parse()
 
 	if len(data_dir) == 0 {
@@ -166,7 +169,8 @@ func main() {
 	rpc.HandleHTTP()
 
 	srv, s2s, err = NewBlubberBlockDirectory(doozer_client,
-		blockservice_prefix, data_dir+"/journal-", data_dir+"/blockmap")
+		blockservice_prefix, data_dir+"/journal-", data_dir+"/blockmap",
+		revision_log_len)
 	if err != nil {
 		log.Fatal("Failed to set up BlubberBlockDirectory: ", err)
 	}
